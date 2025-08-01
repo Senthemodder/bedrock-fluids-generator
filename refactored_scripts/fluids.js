@@ -15,7 +15,6 @@ const UPDATES_PER_TICK = 20;
 //                      CORE IMPLEMENTATION
 //================================================================//
 
-const AIR = BlockPermutation.resolve("air");
 const DIRECTIONS = [
   { dx: 0, dy: 0, dz: -1, facing: "n" },
   { dx: 1, dy: 0, dz: 0, facing: "e" },
@@ -85,7 +84,7 @@ function fluidUpdate(block) {
 
         // If the current block is not a source block, remove it as it has flowed downwards.
         if (!isSourceBlock) {
-            block.setPermutation(AIR);
+            block.setType('air');
         }
         return; // The update is complete for this block.
     }
@@ -112,7 +111,7 @@ function fluidUpdate(block) {
 
     // If the block cannot be sustained, it dries up.
     if (!canBeSustained) {
-        block.setPermutation(AIR);
+        block.setType('air');
         return; // The update is complete for this block.
     }
 
@@ -165,7 +164,8 @@ function placeOrTakeFluid(itemStack, player, hit) {
     const fluidTypeId = fluidPlacerTag.slice(7);
     if (!FluidRegistry[fluidTypeId]) return;
 
-    const fluidPermutation = BlockPermutation.resolve(fluidTypeId);
+    targetBlock.setType(fluidTypeId);
+    const fluidPermutation = targetBlock.permutation;
     
     const finalPermutation = fluidPermutation
         .withState("lumstudio:depth", 7)
@@ -183,7 +183,7 @@ function placeOrTakeFluid(itemStack, player, hit) {
   if (targetBlock.hasTag("fluid") && fluidState === "full" && itemStack.typeId === "minecraft:bucket") {
     const bucketItem = new ItemStack(`${targetBlock.typeId}_bucket`); 
     
-    targetBlock.setPermutation(AIR);
+    targetBlock.setType('air');
     player.getComponent("equippable").setEquipment("Mainhand", bucketItem);
   }
 }
@@ -219,8 +219,10 @@ function initialize() {
             return;
         }
         currentTickRunned = true;
-        placeOrTakeFluid(ev.itemStack, ev.source, { block: ev.block, face: ev.blockFace });
+        const { itemStack, source, block, blockFace } = ev; // Capture properties
+        // Defer world-editing logic to the next tick to avoid privilege errors in beforeEvents
         system.run(() => {
+            placeOrTakeFluid(itemStack, source, { block, blockFace });
             currentTickRunned = false;
         });
     });
