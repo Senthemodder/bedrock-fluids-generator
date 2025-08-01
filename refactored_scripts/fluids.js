@@ -219,8 +219,15 @@ function initialize() {
     const entitiesInFluid = new Set();
 
     system.runInterval(() => {
+        const dimensions = [
+            world.getDimension("overworld"),
+            world.getDimension("the_nether"),
+            world.getDimension("the_end")
+        ];
+
         // Part 1: Update the set of entities that are currently in a fluid.
-        for (const dimension of world.getDimension()) {
+        for (const dimension of dimensions) {
+            if (!dimension) continue; // Skip if a dimension doesn't exist
             for (const entity of dimension.getEntities({})) {
                 const lastLocation = entityLocations.get(entity.id);
                 const currentLocation = entity.location;
