@@ -151,15 +151,14 @@ function fluidUpdate(block) {
     let currentPermutation = block.permutation;
     const blockStates = currentPermutation.getAllStates();
     const depth = blockStates["lumstudio:depth"];
-    const fluidMode = blockStates["lumstudio:fluidMode"];
     const isSourceBlock = depth === MAX_SPREAD_DISTANCE;
 
     const blockAbove = block.above();
-    let isFlowingDownward = (blockAbove?.typeId === block.typeId) || (fluidMode === "active");
+    let isFlowingDownward = (blockAbove?.typeId === block.typeId);
 
     const blockBelow = block.below();
     if (blockBelow?.isAir) {
-        const fallingFluidPermutation = currentPermutation.withState("lumstudio:fluidMode", "active");
+        const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
         markNeighborsForUpdate(blockBelow);
 
@@ -208,14 +207,13 @@ function fluidUpdate(block) {
         return;
     }
     
-    if (blockAbove?.typeId === block.typeId && fluidMode !== "active") {
+    if (blockAbove?.typeId === block.typeId) {
         isFlowingDownward = true;
-        currentPermutation = currentPermutation.withState("lumstudio:fluidMode", "active");
     }
 
     if (depth > 0 && !isFlowingDownward) {
         const newDepth = depth - 1;
-        if (newDepth >= 0) {
+        if (newDepth > 0) {
             for (const dir of DIRECTIONS) {
                 const neighbor = block.offset(dir);
                 if (neighbor?.isAir) {
@@ -264,8 +262,7 @@ function placeOrTakeFluid(itemStack, player, hit) {
     
     const finalPermutation = fluidPermutation
         .withState("lumstudio:depth", 7)
-        .withState("lumstudio:direction", "none")
-        .withState("lumstudio:fluidMode", "dormant");
+        .withState("lumstudio:direction", "none");
 
     targetBlock.setPermutation(finalPermutation);
     

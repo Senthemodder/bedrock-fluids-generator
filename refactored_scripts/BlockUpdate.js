@@ -116,21 +116,8 @@ class BlockUpdate {
 const easyTrigger = (data) => BlockUpdate.trigger(data.block);
 
 // Subscribe to various world events to trigger block update events.
-world.beforeEvents.playerInteractWithBlock.subscribe((data) => {
-  if (!data.isFirstEvent) return;
-  system.run(() => {
-    if (!data.block.isValid || data.cancel) return;
-    BlockUpdate.trigger(data.block);
-  });
-});
 world.afterEvents.playerBreakBlock.subscribe(easyTrigger);
-world.afterEvents.buttonPush.subscribe(easyTrigger);
-world.afterEvents.leverAction.subscribe(easyTrigger);
-world.afterEvents.pistonActivate.subscribe(easyTrigger);
 world.afterEvents.playerPlaceBlock.subscribe(easyTrigger);
-world.afterEvents.pressurePlatePop.subscribe(easyTrigger);
-world.afterEvents.pressurePlatePush.subscribe(easyTrigger);
-world.afterEvents.tripWireTrip.subscribe(easyTrigger);
 world.afterEvents.projectileHitBlock.subscribe((data) => {
   BlockUpdate.trigger(data.getBlockHit().block);
 });
@@ -158,6 +145,13 @@ world.afterEvents.explosion.subscribe((data) => {
       }
     }
   }
+});
+
+world.afterEvents.pistonActivate.subscribe((data) => {
+    BlockUpdate.trigger(data.block);
+    for (const block of data.piston.getAttachedBlocks()) {
+        BlockUpdate.trigger(block);
+    }
 });
 
 /**

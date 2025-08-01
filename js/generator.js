@@ -88,7 +88,7 @@ function getManifestJson(packName, packDesc, type, rpUuid) {
  */
 function getBlockJson(config) {
     const fluidId = config.id;
-    const textureName = fluidId.split(':')[1];
+    const textureName = fluidId.replace(':', '_'); // This is the correct texture alias
     const flowingTexture = `flowing_${textureName}`;
 
     const template = {
