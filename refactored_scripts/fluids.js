@@ -221,7 +221,7 @@ function initialize() {
     system.runInterval(() => {
         const dimensions = [
             world.getDimension("overworld"),
-            world.getDimension("the_nether"),
+            world.getDimension("nether"),
             world.getDimension("the_end")
         ];
 
