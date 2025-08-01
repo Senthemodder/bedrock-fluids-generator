@@ -197,9 +197,12 @@ function initialize() {
     }
 
     BlockUpdate.on((update) => {
-        const block = update.block;
-        if (block && block.isValid() && Queues[block.typeId]) {
-            Queues[block.typeId].add(block);
+        const { block } = update;
+        if (block && block.isValid()) {
+            const queue = Queues[block.typeId];
+            if (queue) {
+                queue.add(block);
+            }
         }
     });
 
