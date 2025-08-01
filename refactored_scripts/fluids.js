@@ -220,7 +220,7 @@ function initialize() {
 
     system.runInterval(() => {
         // Part 1: Update the set of entities that are currently in a fluid.
-        for (const dimension of world.getDimensions()) {
+        for (const dimension of world.getDimension()) {
             for (const entity of dimension.getEntities({})) {
                 const lastLocation = entityLocations.get(entity.id);
                 const currentLocation = entity.location;
