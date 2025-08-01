@@ -97,7 +97,7 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         rp.file('pack_icon.png', packIconBuffer);
         rp.file('manifest.json', JSON.stringify(rpManifest, null, 2));
         rp.folder('fogs').file(`${hexColor}_fog.json`, JSON.stringify(fogJson, null, 2));
-        const blocksRpJson = { "format_version": "1.16.100", [config.id]: { "sound": "bucket.fill_lava", "textures": safeId } };
+        const blocksRpJson = { "format_version": "1.21.90", [config.id]: { "sound": "bucket.fill_lava", "textures": safeId } };
         const itemTextureJson = {
             resource_pack_name: "vanilla",
             texture_name: "atlas.items",
