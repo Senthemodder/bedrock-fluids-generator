@@ -154,14 +154,14 @@ function fluidUpdate(block) {
  * @param {import("@minecraft/server").BlockHitInformation} hit The block that was hit by the player's view, or null.
  */
 function placeOrTakeFluid(itemStack, player, hit) {
-  const fluidPlacerTag = itemStack.getTags().find((str) => str.startsWith("placer:"));
+  const isFluidBucket = itemStack.typeId.endsWith('_bucket');
   if (!hit) return;
 
   const { face, block } = hit;
   const targetBlock = block.relative(face);
 
-  if (targetBlock.isAir && fluidPlacerTag) {
-    const fluidTypeId = fluidPlacerTag.slice(7);
+  if (targetBlock.isAir && isFluidBucket) {
+    const fluidTypeId = itemStack.typeId.replace('_bucket', '');
     if (!FluidRegistry[fluidTypeId]) return;
 
     targetBlock.setType(fluidTypeId);

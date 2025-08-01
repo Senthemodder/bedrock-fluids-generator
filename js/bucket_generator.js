@@ -31,15 +31,7 @@ export function generateBucketItemJson(config) {
         "minecraft:icon": { "texture": bucketId.replace(/:/g, '_') },
         "minecraft:display_name": { "value": `Bucket of ${fluidName}` },
         "minecraft:creative_category": { "parent": "itemGroup.name.bucket" },
-        "minecraft:hand_equipped": true,
-
-        // This tag is the key. The scripts look for an item with a tag
-        // starting with "placer:" to know when to run the fluid placement logic.
-        "minecraft:tags": {
-            "tags": [
-                `placer:${fluidId}`
-            ]
-        }
+        "minecraft:hand_equipped": true
     };
 
     // Assemble the final JSON structure for the item's behavior file.
