@@ -173,20 +173,31 @@ const OriginalMethods = [
 ];
 
 // Override selected methods to trigger block update events.
-for (const data of OriginalMethods) {
-  data.method = data.class.prototype[data.name];
-  data.class.prototype[data.name] = function (arg1, arg2) {
-    if (this instanceof Dimension) {
-      data.method.bind(this)(arg1, arg2);
-      const block = this.getBlock(arg1);
-      if (block !== undefined) {
-        BlockUpdate.trigger(block);
-      }
-    } else {
-      data.method.bind(this)(arg1);
-      BlockUpdate.trigger(this);
-    }
-  };
+for (const { class: targetClass, name: methodName } of OriginalMethods) {
+    const originalMethod = targetClass.prototype[methodName];
+    if (typeof originalMethod !== 'function') continue;
+
+    targetClass.prototype[methodName] = function(...args) {
+        // Call the original method with the correct `this` context and arguments
+        const result = originalMethod.apply(this, args);
+        
+        try {
+            if (this instanceof Block) {
+                BlockUpdate.trigger(this);
+            } else if (this instanceof Dimension) {
+                // For Dimension methods, the first argument is the location
+                const location = args[0];
+                const block = this.getBlock(location);
+                if (block) {
+                    BlockUpdate.trigger(block);
+                }
+            }
+        } catch (e) {
+            console.error(`Error in BlockUpdate trigger for ${methodName}: ${e}`);
+        }
+
+        return result;
+    };
 }
 
 // // Example usage: spawn a particle above the updated block.
