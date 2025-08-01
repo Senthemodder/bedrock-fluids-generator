@@ -270,13 +270,13 @@ function initialize() {
     system.runInterval(() => {
         // Cleanup invalid entities from trackers first
         for (const entityId of entitiesInFluid) {
-            if (!world.getEntity(entityId)?.isValid()) {
+            if (!world.getEntity(entityId)) {
                 entitiesInFluid.delete(entityId);
                 entityLocations.delete(entityId);
             }
         }
         for (const [loc, id] of pickupEntities.entries()) {
-            if (!world.getEntity(id)?.isValid()) {
+            if (!world.getEntity(id)) {
                 pickupEntities.delete(loc);
             }
         }
@@ -318,7 +318,6 @@ function initialize() {
         for (const dimension of dimensions) {
             if (!dimension) continue;
             for (const entity of dimension.getEntities({})) {
-                if (!entity.isValid()) continue; // Early exit for invalid entities
 
                 const lastLocation = entityLocations.get(entity.id);
                 const currentLocation = entity.location;
