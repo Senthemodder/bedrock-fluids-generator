@@ -165,7 +165,7 @@ function generatePermutations(namespace) {
     for (let depthLevel = 1; depthLevel <= MAX_DEPTH; depthLevel++) {
         for (const slope of SLOPE_VALUES) {
             const geomId = `geometry.lumstudio.fluid.${depthLevel}_${slope}`;
-            const condition = `q.block_state('lumstudio:depth') == ${depthLevel - 1} && q.block_state('${namespace}:slope') == '${slope}'`;
+            const condition = `q.block_state('lumstudio:depth') == ${depthLevel - 1} && q.block_state('lumstudio:slope') == '${slope}'`;
             permutations.push({
                 condition: condition,
                 components: {
@@ -233,7 +233,7 @@ function getBlockJson(config) {
     for (let depthLevel = 1; depthLevel <= MAX_DEPTH; depthLevel++) {
         for (const slope of SLOPE_VALUES) {
             const geomId = `geometry.lumstudio.fluid.${depthLevel}_${slope}`;
-            const condition = `q.block_state('lumstudio:depth') == ${depthLevel - 1} && q.block_state('${namespace}:slope') == '${slope}'`;
+            const condition = `q.block_state('lumstudio:depth') == ${depthLevel - 1} && q.block_state('lumstudio:slope') == '${slope}'`;
             generator.addPermutation(condition, {
                 "minecraft:geometry": geomId
             });
