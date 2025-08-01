@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Fluid Maker for GitHub Pages</title>
+  <!-- Load Libraries from CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css" />
+  <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f3f3f3;
+      margin: 0;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 600px;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 0.25rem;
+      box-sizing: border-box;
+    }
+    input[type="range"] {
+      padding: 0;
+    }
+    output {
+      display: inline-block;
+      margin-left: 0.5rem;
+      font-weight: bold;
+    }
+    .checkboxes {
+      margin-top: 1rem;
+    }
+    .checkboxes label {
+      display: flex;
+      align-items: center;
+    }
+    .checkboxes input {
+      width: auto;
+      margin-right: 0.5rem;
+    }
+    button {
+      margin-top: 2rem;
+      background: #007acc;
+      color: white;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    .status {
+      text-align: center;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Custom Fluid Maker</h1>
+    <form id="fluidForm">
+      <label for="fluidName">Fluid Name</label>
+      <input type="text" id="fluidName" placeholder="e.g. Liquid Bismuth" required />
+
+      <label for="fluidID">Block ID (must include namespace)</label>
+      <input type="text" id="fluidID" placeholder="e.g. lumstudio:liquid_bismuth" required pattern="[a-z_]+:[a-z_]+" />
+
+      <label for="texture">Upload Fluid Texture (PNG)</label>
+      <input type="file" id="texture" accept="image/png" required />
+
+      <label for="bucketTexture">Upload Bucket Texture (PNG)</label>
+      <input type="file" id="bucketTexture" accept="image/png" required />
+
+      <label for="packIcon">Pack Icon (optional)</label>
+      <input type="file" id="packIcon" accept="image/png" />
+
+      <label for="fogColor">Fog Color</label>
+      <input type="text" id="fogColor" data-coloris value="#777777" />
+
+      <label for="buoyancy">Buoyancy</label>
+      <input type="number" id="buoyancy" step="0.01" value="0.03" />
+
+      <label for="damage">Damage Per Tick</label>
+      <input type="number" id="damage" step="1" value="0" />
+
+      <label for="lightLevel">Light Level (0-15)</label>
+      <input type="range" id="lightLevel" min="0" max="15" value="0" oninput="this.nextElementSibling.value = this.value" />
+      <output>0</output>
+
+      <label for="effect">Status Effect (optional)</label>
+      <select id="effect">
+        <option value="">None</option>
+        <option value="slowness">Slowness</option>
+        <option value="poison">Poison</option>
+        <option value="blindness">Blindness</option>
+        <option value="night_vision">Night Vision</option>
+      </select>
+
+      <div class="checkboxes">
+        <label><input type="checkbox" id="burnsEntities" /> Burns Entities</label>
+        <label><input type="checkbox" id="supportsBoats" checked /> Supports Boats</label>
+      </div>
+
+      <button type="submit" id="generateButton">Generate Fluid Pack</button>
+      <div class="status" id="statusMessage"></div>
+    </form>
+  </div>
+
+  <!-- Load the generator logic -->
+  <script src="js/fog_generator.js"></script>
+  <script src="js/block_generator.js"></script>
+  <script src="js/geometric_gen.js"></script>
+  <script src="js/generator.js"></script>
+  
+  <!-- Main application script -->
+  <script src="js/main.js"></script>
+
+  <!-- Initialize Coloris -->
+  <script>
+    Coloris({
+      el: '[data-coloris]',
+      swatches: [
+        '#264653',
+        '#2a9d8f',
+        '#e9c46a',
+        '#f4a261',
+        '#e76f51',
+        '#d62828',
+        '#023e8a',
+        '#0077b6',
+        '#0096c7',
+        '#00b4d8',
+        '#48cae4',
+      ],
+    });
+  </script>
+</body>
+</html>
