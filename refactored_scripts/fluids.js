@@ -297,7 +297,16 @@ function placeFluidWithBucket(itemStack, player, block, face) {
   const isFluidBucket = itemStack.typeId.endsWith('_bucket');
   if (!isFluidBucket) return;
 
-  const targetBlock = block.offset(directionToOffset[face]);
+  let targetBlock;
+  switch (face) {
+    case Direction.Up: targetBlock = block.above(1); break;
+    case Direction.Down: targetBlock = block.below(1); break;
+    case Direction.North: targetBlock = block.north(1); break;
+    case Direction.South: targetBlock = block.south(1); break;
+    case Direction.East: targetBlock = block.east(1); break;
+    case Direction.West: targetBlock = block.west(1); break;
+    default: return;
+  }
 
   if (targetBlock && targetBlock.isAir) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
@@ -518,7 +527,7 @@ function initialize() {
                 }
             }
 
-            if (entity.isJumping) {
+            if (entity.typeId === "minecraft:player" && entity.isJumping) {
                 entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
             }
             
