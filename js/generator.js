@@ -131,6 +131,10 @@ function getBlockJson(config) {
       }
     };
 
+    if (config.lightLevel > 0) {
+        template["minecraft:block"].components["minecraft:light_emission"] = config.lightLevel;
+    }
+
     const directions = ["none", "s", "n", "e", "w", "ns", "ne", "se", "sw"];
     const rotations = {
         "e": [0, 90, 0],
