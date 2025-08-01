@@ -65,30 +65,6 @@ function areEqualPerms(perm1, perm2) {
   return Object.keys(states1).every((value) => states1[value] === states2[value])
 }
 
-/**
- * Schedules updates for a block's neighbors.
- * @param {Block} block The block whose neighbors need to be updated.
- */
-function markNeighborsForUpdate(block) {
-    const queue = Queues[block.typeId];
-    if (!queue) return;
-
-    for (const dir of DIRECTIONS) {
-        const neighbor = block.offset(dir);
-        if (neighbor?.typeId === block.typeId) {
-            queue.add(neighbor);
-        }
-    }
-    const blockAbove = block.above();
-    if (blockAbove?.typeId === block.typeId) {
-        queue.add(blockAbove);
-    }
-    const blockBelow = block.below();
-    if (blockBelow?.typeId === block.typeId) {
-        queue.add(blockBelow);
-    }
-}
-
 
 /**
  * Refreshes the fluid states.
@@ -160,11 +136,11 @@ function fluidUpdate(block) {
     if (blockBelow?.isAir) {
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
-        markNeighborsForUpdate(blockBelow);
+        BlockUpdate.trigger(blockBelow);
 
         if (!isSourceBlock) {
             block.setType('air');
-            markNeighborsForUpdate(block);
+            BlockUpdate.trigger(block);
         }
         return;
     }
@@ -203,7 +179,7 @@ function fluidUpdate(block) {
 
     if (!canBeSustained) {
         block.setType('air');
-        markNeighborsForUpdate(block);
+        BlockUpdate.trigger(block);
         return;
     }
     
@@ -219,7 +195,7 @@ function fluidUpdate(block) {
                 if (neighbor?.isAir) {
                     const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
                     neighbor.setPermutation(spreadingPermutation);
-                    markNeighborsForUpdate(neighbor);
+                    BlockUpdate.trigger(neighbor);
                 }
             }
         }
@@ -235,7 +211,7 @@ function fluidUpdate(block) {
 
     if (!areEqualPerms(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
-        markNeighborsForUpdate(block);
+        BlockUpdate.trigger(block);
     }
 }
 
