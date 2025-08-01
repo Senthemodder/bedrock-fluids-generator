@@ -206,7 +206,8 @@ function getBlockJson(config) {
 
     // Add base components
     generator
-        .addComponent("minecraft:tags", { "tags": ["fluid", safeId] })
+        .addTag("fluid")
+        .addTag(safeId)
         .addComponent("minecraft:material_instances", {
             "*": {
                 "texture": safeId,
@@ -224,9 +225,6 @@ function getBlockJson(config) {
         .addComponent("minecraft:destructible_by_mining", { "seconds_to_destroy": 100 })
         .addComponent("minecraft:destructible_by_explosion", { "explosion_resistance": 500 });
 
-    if (config.supportsBoats) {
-        generator.addComponent("minecraft:boat_passable", {});
-    }
     if (config.lightLevel && config.lightLevel > 0) {
         generator.addComponent("minecraft:light_emission", config.lightLevel);
     }
@@ -245,47 +243,7 @@ function getBlockJson(config) {
     return generator.build();
 }
 
-/**
- * Creates the JSON for the fluid's bucket item.
- * @param {object} config The fluid configuration from the frontend.
- * @returns {object}
- */
-function getBucketItemJson(config) {
-    const fluidId = config.id;
-    const namespace = fluidId.split(':')[0];
-    const bucketId = `${fluidId}_bucket`;
-    const fluidName = config.name;
 
-    const components = {
-        "minecraft:max_stack_size": 1,
-        "minecraft:icon": { "texture": bucketId.replace(':', '_') },
-        "minecraft:display_name": { "value": `Bucket of ${fluidName}` },
-        "minecraft:creative_category": { "parent": "itemGroup.name.bucket" },
-        "minecraft:hand_equipped": true,
-        "minecraft:block_placer": {
-            "block": {
-                "name": fluidId,
-                "states": {
-                    "lumstudio:depth": 7,
-                    [`${namespace}:slope`]: "none",
-                    [`${namespace}:fluid_state`]: "full",
-                    "lumstudio:fluidMode": "dormant"
-                }
-            }
-        }
-    };
-
-    return {
-        "format_version": "1.20.10",
-        "minecraft:item": {
-            "description": {
-                "identifier": bucketId,
-                "category": "Items"
-            },
-            "components": components
-        }
-    };
-}
 
 /**
  * Creates the JSON for a pack manifest file.

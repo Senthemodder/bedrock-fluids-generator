@@ -20,13 +20,15 @@ class BlockGenerator {
                     "properties": {}
                 },
                 "components": {},
-                "permutations": []
+                "permutations": [],
+                "tags": [] // Correctly initialize tags array here
             }
         };
         // Convenience references to the inner parts of the JSON structure
         this.description = this.block["minecraft:block"].description;
         this.components = this.block["minecraft:block"].components;
         this.permutations = this.block["minecraft:block"].permutations;
+        this.tags = this.block["minecraft:block"].tags; // Add reference to tags
     }
 
     /**
@@ -48,6 +50,16 @@ class BlockGenerator {
      */
     addComponent(name, definition) {
         this.components[name] = definition;
+        return this;
+    }
+
+    /**
+     * Adds a tag to the block's top-level tags list.
+     * @param {string} tag The tag to add.
+     * @returns {BlockGenerator} The current instance for chaining.
+     */
+    addTag(tag) {
+        this.tags.push(tag);
         return this;
     }
 
@@ -79,6 +91,9 @@ class BlockGenerator {
         }
         if (this.permutations.length === 0) {
             delete this.block["minecraft:block"].permutations;
+        }
+        if (this.tags.length === 0) {
+            delete this.block["minecraft:block"].tags;
         }
         return this.block;
     }

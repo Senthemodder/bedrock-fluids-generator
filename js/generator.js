@@ -66,7 +66,7 @@ function getManifestJson(packName, packDesc, type) {
         base.dependencies = [
             {
                 "module_name": "@minecraft/server",
-                "version": "1.12.0-beta"
+                "version": "2.1.0-beta"
             }
         ];
     }
