@@ -351,57 +351,47 @@ function initialize() {
 
     // --- 3. Setup Player Interaction Listeners ---
 
-    // Event for PLACING fluid - using a more specific event
+    // --- 3. Setup Player Interaction Listener ---
     world.beforeEvents.playerInteractWithBlock.subscribe(event => {
         const { player, block, itemStack } = event;
         if (!itemStack) return;
 
-        // Check if the player is trying to place a fluid from a bucket
+        // Case 1: Player is holding a full fluid bucket -> Place fluid
         if (itemStack.typeId.endsWith('_bucket')) {
-            // We are placing a fluid, so we cancel the default block interaction.
             event.cancel = true;
-            
-            // Run the placement logic in the next tick.
             system.run(() => {
                 placeFluidWithBucket(itemStack, player, block, event.blockFace);
             });
+            return;
         }
-    });
 
-    // Event for TAKING fluid (by interacting with the dummy entity)
-    world.beforeEvents.playerInteractWithEntity.subscribe(event => {
-        const { player, target } = event;
-        if (target.typeId === 'lumstudio:fluid_pickup_entity') {
-            event.cancel = true; // Prevent default interaction
-            system.run(() => {
-                // The block is at the same location as the entity
-                const block = target.dimension.getBlock(target.location);
-                if (block && block.hasTag("fluid")) {
-                    // Give player a full bucket
-                    const bucketItem = new ItemStack(`${block.typeId}_bucket`);
-                    player.getComponent("equippable").setEquipment("Mainhand", bucketItem);
-                    
-                    const oldBlockLocation = block.location;
-                    activeFluidBlocks.delete(getBlockLocationString(block));
-                    block.setType('air');
-                    BlockUpdate.trigger(player.dimension.getBlock(oldBlockLocation));
+        // Case 2: Player is holding an empty bucket -> Pick up fluid
+        if (itemStack.typeId === 'minecraft:bucket') {
+            if (block.hasTag("fluid")) {
+                const depth = block.permutation?.getState("lumstudio:depth");
+                if (depth === MAX_SPREAD_DISTANCE) {
+                    event.cancel = true;
+                    system.run(() => {
+                        const fluidTypeId = block.typeId;
+                        const fullBucket = new ItemStack(`${fluidTypeId}_bucket`, 1);
+                        
+                        player.getComponent("equippable").setEquipment("Mainhand", fullBucket);
+
+                        const oldBlockLocation = block.location;
+                        activeFluidBlocks.delete(getBlockLocationString(block));
+                        block.setType('air');
+
+                        BlockUpdate.triggerForNeighborsAt(block.dimension, oldBlockLocation, undefined);
+                    });
                 }
-                // The entity has served its purpose, kill it.
-                target.kill();
-            });
+            }
         }
     });
     
     // --- 4. Main Tick Loop ---
     const entitiesInFluid = new Set();
-    /** 
-     * @type {Map<string, {id: string, block: Block}>} 
-     * @description Tracks the pickup entity for each player.
-     * The key is the player's ID.
-     * The value is an object containing the entity's ID and the Block it's associated with.
-     */
-    const pickupEntities = new Map();
     const flightDisabledPlayers = new Map();
+    const pickupEntities = new Map();
 
     // This handles restoring flight to players who log off while in a fluid.
     world.afterEvents.playerJoin.subscribe(event => {
@@ -415,10 +405,18 @@ function initialize() {
         }, 5);
     });
 
+    world.afterEvents.playerLeave.subscribe(event => {
+        const entityData = pickupEntities.get(event.playerId);
+        if (entityData) {
+            const entity = world.getEntity(entityData.id);
+            if (entity) entity.kill();
+            pickupEntities.delete(event.playerId);
+        }
+    });
+
     // This loop runs every single tick to ensure the pickup logic is highly responsive.
     system.runInterval(() => {
         // --- A. Cleanup Stale Data ---
-        // This is a quick check to remove any entities that might have despawned unexpectedly.
         for (const entityId of entitiesInFluid) {
             if (!world.getEntity(entityId)) entitiesInFluid.delete(entityId);
         }
@@ -426,46 +424,44 @@ function initialize() {
             if (!world.getEntity(entityData.id)) pickupEntities.delete(playerId);
         }
 
-        // --- B. Raycast-based Pickup Entity Management ---
-        // This loop handles the core logic for showing and hiding the interactable entity for picking up fluids.
+        // --- B. Manage Visual Pickup Entities ---
         for (const player of world.getAllPlayers()) {
-            /** @type {ItemStack | undefined} The item the player is currently holding. */
             const mainhandItem = player.getComponent("equippable").getEquipment("Mainhand");
-            
-            /** @type {BlockRaycastHit | undefined} The result of a raycast from the player's view. */
-            const hit = player.getBlockFromViewDirection({
-                includePassableBlocks: false, // We only care about solid blocks for this.
-                maxDistance: 6,
-            });
-            /** @type {Block | undefined} The block the player is currently looking at. */
-            const targetedBlock = hit?.block;
-            /** @type {{id: string, block: Block} | undefined} The existing pickup entity data for this player, if any. */
             const existingPickup = pickupEntities.get(player.id);
+            
+            // Condition to show the pickup entity: holding a bucket and looking at a fluid source.
+            let showPickupEntity = false;
+            let targetedBlock = undefined;
 
-            // Despawn Logic: If an entity exists, but the player is no longer looking at its block, kill it.
-            // This ensures the pickup entity only exists while the player is aiming at the correct block.
-            if (existingPickup && (!targetedBlock || !targetedBlock.equals(existingPickup.block))) {
+            if (mainhandItem?.typeId === 'minecraft:bucket') {
+                const hit = player.getBlockFromViewDirection({ maxDistance: 6 });
+                targetedBlock = hit?.block;
+                if (targetedBlock?.hasTag("fluid") && targetedBlock.permutation?.getState("lumstudio:depth") === MAX_SPREAD_DISTANCE) {
+                    showPickupEntity = true;
+                }
+            }
+
+            // If we should show the entity but one doesn't exist, spawn it.
+            if (showPickupEntity && !existingPickup) {
+                const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', targetedBlock.center());
+                pickupEntities.set(player.id, { id: entity.id, block: targetedBlock });
+            } 
+            // If we shouldn't show it but one exists, or if the target block changed, kill it.
+            else if (!showPickupEntity && existingPickup) {
                 const oldEntity = world.getEntity(existingPickup.id);
                 if (oldEntity) oldEntity.kill();
                 pickupEntities.delete(player.id);
             }
-
-            // Spawn Logic: If the player is looking at a valid fluid source with a bucket, spawn the entity.
-            if (targetedBlock && mainhandItem?.typeId === 'minecraft:bucket') {
-                /** @type {number | undefined} The depth state of the block being looked at. */
-                const depth = targetedBlock.permutation?.getState("lumstudio:depth");
-                // Check if it's a source block and no entity exists for this player yet.
-                if (targetedBlock.hasTag("fluid") && depth === MAX_SPREAD_DISTANCE && !existingPickup) {
-                    /** @type {Entity} The newly spawned, invisible entity. */
-                    const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', targetedBlock.center());
-                    // Store the new entity's ID and the block it's tied to.
-                    pickupEntities.set(player.id, { id: entity.id, block: targetedBlock });
-                }
+            else if (showPickupEntity && existingPickup && !targetedBlock.equals(existingPickup.block)) {
+                const oldEntity = world.getEntity(existingPickup.id);
+                if (oldEntity) oldEntity.kill();
+                
+                const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', targetedBlock.center());
+                pickupEntities.set(player.id, { id: entity.id, block: targetedBlock });
             }
         }
 
         // --- C. Detect Entities in Fluids (OPTIMIZED) ---
-        /** @type {Set<string>} A temporary set to track entities found in fluids during this specific tick. */
         const entitiesFoundThisTick = new Set();
 
         /** @type {string} A location string for a fluid block, e.g., "10,20,30,minecraft:overworld". */

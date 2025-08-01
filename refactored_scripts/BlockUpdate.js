@@ -159,7 +159,10 @@ world.afterEvents.playerPlaceBlock.subscribe(easyTrigger);
 
 // Special handling for playerBreakBlock where the event's block is no longer valid.
 world.afterEvents.playerBreakBlock.subscribe((eventData) => {
-    BlockUpdate.triggerForNeighborsAt(eventData.dimension, eventData.block.location, undefined);
+    // Add a guard clause to ensure the block property exists before accessing it.
+    if (eventData.block) {
+        BlockUpdate.triggerForNeighborsAt(eventData.dimension, eventData.block.location, undefined);
+    }
 });
 
 // Redstone-related block changes
