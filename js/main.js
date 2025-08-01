@@ -1,4 +1,5 @@
 import { generateBucketItemJson } from './bucket_generator.js';
+import { createDummyEntity } from './dummy_entity_generator.js';
 
 document.getElementById('fluidForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -56,6 +57,28 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
             .setDistance("weather", 0.0, 15.0, config.fogColor)
             .build();
         
+        // --- Generate Robust Pickup Entity ---
+        const pickupEntityIdentifier = "lumstudio:fluid_pickup_entity";
+        const dummyFiles = createDummyEntity({ identifier: pickupEntityIdentifier });
+
+        // Add a hitbox for reliable player interaction
+        dummyFiles.behavior["minecraft:entity"].components["minecraft:custom_hit_test"] = {
+            "hitboxes": [
+                {
+                    "pivot": [0, 0.5, 0], // Center of the block
+                    "width": 1,
+                    "height": 1
+                }
+            ]
+        };
+        // Add a type family for easy targeting in scripts
+        dummyFiles.behavior["minecraft:entity"].components["minecraft:type_family"] = {
+             "family": ["inanimate", "fluid_pickup"] 
+        };
+        // (Optional but recommended) Add shulker runtime identifier for stability
+        dummyFiles.behavior["minecraft:entity"].description.runtime_identifier = "minecraft:shulker";
+
+
         // --- Fetch Static Assets ---
         const fluidGeoResponse = await fetch('js/fluid.geo.json');
         if (!fluidGeoResponse.ok) throw new Error('Could not load fluid.geo.json.');
@@ -71,26 +94,8 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         bp.file('manifest.json', JSON.stringify(bpManifest, null, 2));
         bp.folder('blocks').file(`${safeId}.json`, JSON.stringify(blockJson, null, 2));
         bp.folder('items').file(`${safeId}_bucket.json`, JSON.stringify(bucketJson, null, 2));
-        const pickupEntityBp = {
-            "format_version": "1.20.60",
-            "minecraft:entity": {
-                "description": {
-                    "identifier": "lumstudio:fluid_pickup_entity",
-                    "is_spawnable": false,
-                    "is_summonable": true,
-                    "is_experimental": false
-                },
-                "components": {
-                    "minecraft:type_family": { "family": ["inanimate", "fluid_pickup"] },
-                    "minecraft:collision_box": { "width": 1.0, "height": 1.0 },
-                    "minecraft:health": { "value": 1, "max": 1 },
-                    "minecraft:damage_sensor": {
-                        "triggers": { "cause": "all", "deals_damage": false }
-                    }
-                }
-            }
-        };
-        bp.folder('entities').file('fluid_pickup_entity.json', JSON.stringify(pickupEntityBp, null, 2));
+        // Add the new, robust pickup entity file
+        bp.folder('entities').file('fluid_pickup_entity.json', JSON.stringify(dummyFiles.behavior, null, 2));
         
         // --- Scripting Engine ---
         const scriptsFolder = bp.folder('scripts');
@@ -134,18 +139,12 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
             num_mip_levels: 4,
             texture_data: { [safeId]: { textures: `textures/blocks/${safeId}` } }
         };
-        const pickupEntityRp = {
-            "format_version": "1.10.0",
-            "minecraft:client_entity": {
-                "description": {
-                    "identifier": "lumstudio:fluid_pickup_entity",
-                    "textures": { "default": "textures/entity/axolotl/axolotl_wild" },
-                    "geometry": { "default": "geometry.player_head" },
-                    "render_controllers": [ "controller.render.invisible" ]
-                }
-            }
-        };
-        rp.folder('entities').file('fluid_pickup_entity.json', JSON.stringify(pickupEntityRp, null, 2));
+        
+        // Add the new entity files to the RP
+        rp.folder('entity').file('fluid_pickup_entity.json', JSON.stringify(dummyFiles.resource, null, 2));
+        rp.folder('models/entity').file('dummy.json', JSON.stringify(dummyFiles.geometry, null, 2));
+        rp.folder('render_controllers').file('dummy.json', JSON.stringify(dummyFiles.render_controller, null, 2));
+
         rp.file('blocks.json', JSON.stringify(blocksRpJson, null, 2));
         rp.folder('textures').file('item_texture.json', JSON.stringify(itemTextureJson, null, 2));
         rp.folder('textures').file('terrain_texture.json', JSON.stringify(terrainTextureJson, null, 2));
