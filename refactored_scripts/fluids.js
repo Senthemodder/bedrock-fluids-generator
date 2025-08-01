@@ -363,7 +363,7 @@ function initialize() {
             
             // Run the placement logic in the next tick.
             system.run(() => {
-                placeFluidWithBucket(itemStack, player, block, event.face);
+                placeFluidWithBucket(itemStack, player, block, event.blockFace);
             });
         }
     });
@@ -496,53 +496,50 @@ function initialize() {
             }
         }
 
-        // --- D. Cleanup Entities No Longer in Fluid ---
-        /** @type {string} The unique ID of an entity. */
+        // --- D. Process All Entities in Fluid ---
+        const entitiesToRemove = new Set();
         for (const entityId of entitiesInFluid) {
-            // If an entity was in a fluid last tick but wasn't found this tick, it has exited.
-            if (!entitiesFoundThisTick.has(entityId)) {
-                /** @type {Entity | undefined} The entity that has left the fluid. */
-                const entity = world.getEntity(entityId);
-                // If it's a player, remove the fog effect.
-                if (entity && entity.typeId === "minecraft:player") {
-                    entity.runCommand("fog @s remove fluid_fog");
+            const entity = world.getEntity(entityId);
 
-                    // Restore flight if it was disabled by the fluid
+            // 1. VALIDATE: Ensure entity exists and is valid.
+            if (!entity || !entity.isValid()) {
+                entitiesToRemove.add(entityId);
+                continue;
+            }
+
+            // 2. CHECK LOCATION: See if the entity has left the fluid area.
+            if (!entitiesFoundThisTick.has(entityId)) {
+                if (entity.typeId === "minecraft:player") {
+                    entity.runCommand("fog @s remove fluid_fog");
                     if (entity.hasTag("flight_disabled_by_fluid")) {
                         entity.runCommand("ability @s mayfly true");
                         entity.removeTag("flight_disabled_by_fluid");
                     }
                 }
-                // Remove the entity from the main tracking set.
-                entitiesInFluid.delete(entityId);
-            }
-        }
-
-        // --- E. Apply Fluid Effects to Entities ---
-        for (const entityId of entitiesInFluid) {
-            const entity = world.getEntity(entityId);
-            if (!entity) continue;
-
-            const bodyBlock = entity.dimension.getBlock(entity.location);
-            const fluidData = FluidRegistry[bodyBlock?.typeId];
-
-            if (!fluidData) {
-                entitiesInFluid.delete(entityId);
-                if (entity.typeId === "minecraft:player") {
-                    entity.runCommand("fog @s remove fluid_fog");
-                }
+                entitiesToRemove.add(entityId);
                 continue;
             }
 
+            // 3. CHECK BLOCK: Ensure the block the entity is in is still a fluid.
+            const bodyBlock = entity.dimension.getBlock(entity.location);
+            const fluidData = FluidRegistry[bodyBlock?.typeId];
+            if (!fluidData) {
+                // Fluid block may have decayed, treat as leaving.
+                if (entity.typeId === "minecraft:player") {
+                    entity.runCommand("fog @s remove fluid_fog");
+                }
+                entitiesToRemove.add(entityId);
+                continue;
+            }
+
+            // 4. APPLY EFFECTS: At this point, the entity is valid and in a fluid.
+            
             // --- Player-Specific Effects ---
             if (entity.typeId === "minecraft:player") {
-                // Handle creative flight
                 if (entity.matches({ gameMode: 'creative' }) && !entity.hasTag("flight_disabled_by_fluid")) {
                     entity.runCommand("ability @s mayfly false");
                     entity.addTag("flight_disabled_by_fluid");
                 }
-
-                // Handle fog
                 const headBlock = entity.getHeadLocation();
                 const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
                 const fluidDataInHead = FluidRegistry[fluidInHead];
@@ -552,8 +549,6 @@ function initialize() {
                 } else {
                     entity.runCommand("fog @s remove fluid_fog");
                 }
-
-                // Handle jumping
                 if (entity.isJumping) {
                     entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
                 }
@@ -562,8 +557,6 @@ function initialize() {
             // --- Physics and Buoyancy ---
             let buoyancyForce = fluidData.buoyancy || 0;
             const velocity = entity.getVelocity();
-
-            // Add drag force only when falling to prevent unnatural upward acceleration
             if (velocity.y < 0) {
                 buoyancyForce += Math.abs(velocity.y) * 0.3;
             }
@@ -580,6 +573,14 @@ function initialize() {
                 }
             }
         }
+
+        // --- E. Cleanup ---
+        // Safely remove all entities that were marked for removal during the loop.
+        for (const entityId of entitiesToRemove) {
+            entitiesInFluid.delete(entityId);
+        }
+    }, 1); // Run every tick for responsive pickup entity
+}
     }, 1); // Run every tick for responsive pickup entity
 }
 
