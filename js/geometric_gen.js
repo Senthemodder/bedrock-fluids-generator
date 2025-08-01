@@ -199,10 +199,10 @@ function getBlockJson(config) {
 
     // Add properties
     generator
-        .addProperty("lumstudio:depth", [0, 1, 2, 3, 4, 5, 6, 7])
-        .addProperty(`${namespace}:slope`, ["none", "n", "e", "s", "w", "ne", "nw", "se", "sw"])
-        .addProperty(`${namespace}:fluid_state`, ["full", "flowing_0", "flowing_1", "flowing_2", "flowing_3", "flowing_4", "flowing_5", "empty"])
-        .addProperty("lumstudio:fluidMode", ["dormant", "active"]);
+        .addStates("lumstudio:depth", [0, 1, 2, 3, 4, 5, 6, 7])
+        .addStates("lumstudio:slope", ["none", "n", "e", "s", "w", "ne", "nw", "se", "sw"])
+        .addStates(`lumstudio:fluid_state`, ["full", "flowing_0", "flowing_1", "flowing_2", "flowing_3", "flowing_4", "flowing_5", "empty"])
+        .addStates("lumstudio:fluidMode", ["dormant", "active"]);
 
     // Add base components
     generator
@@ -213,11 +213,9 @@ function getBlockJson(config) {
                 "texture": safeId,
                 "render_method": "blend",
                 "face_dimming": false,
-                "ambient_occlusion": false,
-                "fog_color": config.fogColor
+                "ambient_occlusion": false
             }
         })
-        .addComponent("minecraft:geometry", "geometry.lumstudio.fluid.8_none")
         .addComponent("minecraft:placement_filter", {
             "conditions": [{ "allowed_faces": ["up", "down", "north", "south", "east", "west"] }]
         })

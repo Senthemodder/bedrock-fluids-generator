@@ -70,7 +70,7 @@ function getManifestJson(packName, packDesc, type, rpUuid) {
             },
             {
                 "module_name": "@minecraft/server-ui",
-                "version": "1.1.0"
+                "version": "1.3.0"
             },
             {
                 "uuid": rpUuid,

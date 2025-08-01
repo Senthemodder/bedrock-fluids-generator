@@ -17,18 +17,16 @@ class BlockGenerator {
             "minecraft:block": {
                 "description": {
                     "identifier": identifier,
-                    "properties": {}
+                    "states": {}
                 },
                 "components": {},
-                "permutations": [],
-                "tags": [] // Correctly initialize tags array here
+                "permutations": []
             }
         };
         // Convenience references to the inner parts of the JSON structure
         this.description = this.block["minecraft:block"].description;
         this.components = this.block["minecraft:block"].components;
         this.permutations = this.block["minecraft:block"].permutations;
-        this.tags = this.block["minecraft:block"].tags; // Add reference to tags
     }
 
     /**
@@ -37,8 +35,8 @@ class BlockGenerator {
      * @param {Array<string|number|boolean>} values An array of possible values for the state.
      * @returns {BlockGenerator} The current instance for chaining.
      */
-    addProperty(name, values) {
-        this.description.properties[name] = values;
+    addStates(name, values) {
+        this.description.states[name] = values;
         return this;
     }
 
@@ -54,12 +52,12 @@ class BlockGenerator {
     }
 
     /**
-     * Adds a tag to the block's top-level tags list.
-     * @param {string} tag The tag to add.
+     * Adds a tag as a component to the block.
+     * @param {string} tag The tag to add (e.g., 'fluid').
      * @returns {BlockGenerator} The current instance for chaining.
      */
     addTag(tag) {
-        this.tags.push(tag);
+        this.components[`tag:${tag}`] = {};
         return this;
     }
 
@@ -83,17 +81,14 @@ class BlockGenerator {
      * @returns {object} The complete block JSON.
      */
     build() {
-        if (Object.keys(this.description.properties).length === 0) {
-            delete this.description.properties;
+        if (Object.keys(this.description.states).length === 0) {
+            delete this.description.states;
         }
         if (Object.keys(this.components).length === 0) {
             delete this.block["minecraft:block"].components;
         }
         if (this.permutations.length === 0) {
             delete this.block["minecraft:block"].permutations;
-        }
-        if (this.tags.length === 0) {
-            delete this.block["minecraft:block"].tags;
         }
         return this.block;
     }
