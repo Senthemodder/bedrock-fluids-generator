@@ -1,4 +1,4 @@
-import { world, system, Player , BlockPermutation, ItemStack } from "@minecraft/server";
+import { world, system, Player, BlockPermutation, ItemStack, Direction } from "@minecraft/server";
 import { BlockUpdate } from "./BlockUpdate.js";
 import { FluidQueue } from "./queue.js";
 
@@ -21,8 +21,17 @@ const DIRECTIONS = [
   { dx: 0, dy: 0, dz: 1, facing: "s" },
   { dx: -1, dy: 0, dz: 0, facing: "w" },
 ];
+
+const directionToOffset = {
+    [Direction.Up]: { x: 0, y: 1, z: 0 },
+    [Direction.Down]: { x: 0, y: -1, z: 0 },
+    [Direction.North]: { x: 0, y: 0, z: -1 },
+    [Direction.South]: { x: 0, y: 0, z: 1 },
+    [Direction.East]: { x: 1, y: 0, z: 0 },
+    [Direction.West]: { x: -1, y: 0, z: 0 },
+};
 const Queues = {};
-let currentTickRunned = false;
+
 
 function fluidState(depth) {
   if (depth >= 0.875) return "full";
@@ -158,7 +167,7 @@ function placeOrTakeFluid(itemStack, player, hit) {
   if (!hit) return;
 
   const { face, block } = hit;
-  const targetBlock = block.relative(face);
+  const targetBlock = block.offset(directionToOffset[face]);
 
   if (targetBlock.isAir && isFluidBucket) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
