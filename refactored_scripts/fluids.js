@@ -342,17 +342,21 @@ function initialize() {
 
     // --- 3. Setup Player Interaction Listeners ---
 
-    // Event for PLACING fluid
-    world.afterEvents.itemUse.subscribe(({ itemStack, source: player }) => {
-        system.run(() => {
-            const hit = player.getBlockFromViewDirection({
-                includePassableBlocks: true,
-                maxDistance: 6,
+    // Event for PLACING fluid - using a more specific event
+    world.beforeEvents.playerInteractWithBlock.subscribe(event => {
+        const { player, block, itemStack } = event;
+        if (!itemStack) return;
+
+        // Check if the player is trying to place a fluid from a bucket
+        if (itemStack.typeId.endsWith('_bucket')) {
+            // We are placing a fluid, so we cancel the default block interaction.
+            event.cancel = true;
+            
+            // Run the placement logic in the next tick.
+            system.run(() => {
+                placeFluidWithBucket(itemStack, player, { block, face: event.face });
             });
-            if (hit) {
-                placeFluidWithBucket(itemStack, player, hit);
-            }
-        });
+        }
     });
 
     // Event for TAKING fluid (by interacting with the dummy entity)
