@@ -8,7 +8,7 @@
 //                          IMPORTS
 //================================================================//
 
-import { world, system, Player, BlockPermutation, ItemStack, Direction, Block, Vector } from "@minecraft/server";
+import { world, system, Player, BlockPermutation, ItemStack, Direction, Block } from "@minecraft/server";
 import { BlockUpdate } from "./BlockUpdate.js";
 import { FluidQueue } from "./queue.js";
 import { FluidRegistry } from "./registry.js";
