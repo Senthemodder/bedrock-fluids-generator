@@ -401,6 +401,19 @@ function initialize() {
      * The value is an object containing the entity's ID and the Block it's associated with.
      */
     const pickupEntities = new Map();
+    const flightDisabledPlayers = new Map();
+
+    // This handles restoring flight to players who log off while in a fluid.
+    world.afterEvents.playerJoin.subscribe(event => {
+        const { player } = event;
+        // Use a short delay to ensure the player is fully loaded.
+        system.runTimeout(() => {
+            if (player.hasTag("flight_disabled_by_fluid")) {
+                player.runCommand("ability @s mayfly true");
+                player.removeTag("flight_disabled_by_fluid");
+            }
+        }, 5);
+    });
 
     // This loop runs every single tick to ensure the pickup logic is highly responsive.
     system.runInterval(() => {
@@ -493,6 +506,12 @@ function initialize() {
                 // If it's a player, remove the fog effect.
                 if (entity && entity.typeId === "minecraft:player") {
                     entity.runCommand("fog @s remove fluid_fog");
+
+                    // Restore flight if it was disabled by the fluid
+                    if (entity.hasTag("flight_disabled_by_fluid")) {
+                        entity.runCommand("ability @s mayfly true");
+                        entity.removeTag("flight_disabled_by_fluid");
+                    }
                 }
                 // Remove the entity from the main tracking set.
                 entitiesInFluid.delete(entityId);
@@ -515,7 +534,15 @@ function initialize() {
                 continue;
             }
 
+            // --- Player-Specific Effects ---
             if (entity.typeId === "minecraft:player") {
+                // Handle creative flight
+                if (entity.matches({ gameMode: 'creative' }) && !entity.hasTag("flight_disabled_by_fluid")) {
+                    entity.runCommand("ability @s mayfly false");
+                    entity.addTag("flight_disabled_by_fluid");
+                }
+
+                // Handle fog
                 const headBlock = entity.getHeadLocation();
                 const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
                 const fluidDataInHead = FluidRegistry[fluidInHead];
@@ -525,18 +552,24 @@ function initialize() {
                 } else {
                     entity.runCommand("fog @s remove fluid_fog");
                 }
-            }
 
-            if (entity.typeId === "minecraft:player" && entity.isJumping) {
-                entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
+                // Handle jumping
+                if (entity.isJumping) {
+                    entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
+                }
             }
             
+            // --- Physics and Buoyancy ---
+            let buoyancyForce = fluidData.buoyancy || 0;
             const velocity = entity.getVelocity();
-            if (velocity.y < 0.05) {
-                const buoyancyForce = Math.abs(velocity.y) * 0.3 + (fluidData.buoyancy || 0);
-                entity.applyKnockback(0, 0, 0, buoyancyForce);
-            }
 
+            // Add drag force only when falling to prevent unnatural upward acceleration
+            if (velocity.y < 0) {
+                buoyancyForce += Math.abs(velocity.y) * 0.3;
+            }
+            entity.applyKnockback(0, 0, 0, buoyancyForce);
+
+            // --- General Effects (Damage, Burn, etc.) ---
             for (const effectKey in fluidData) {
                 if (effectHandlers[effectKey]) {
                     try {
