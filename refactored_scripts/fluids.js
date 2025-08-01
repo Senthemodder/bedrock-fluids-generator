@@ -204,26 +204,14 @@ function initialize() {
     });
 
     world.afterEvents.itemUse.subscribe(({ itemStack, source: player }) => {
-        const hit = player.getBlockFromViewDirection({
-            includePassableBlocks: true,
-            maxDistance: 6,
-        });
-        if (hit) {
-            placeOrTakeFluid(itemStack, player, hit);
-        }
-    });
-
-    world.beforeEvents.itemUseOn.subscribe((ev) => {
-        if (currentTickRunned) {
-            ev.cancel = true;
-            return;
-        }
-        currentTickRunned = true;
-        const { itemStack, source, block, blockFace } = ev; // Capture properties
-        // Defer world-editing logic to the next tick to avoid privilege errors in beforeEvents
         system.run(() => {
-            placeOrTakeFluid(itemStack, source, { block, blockFace });
-            currentTickRunned = false;
+            const hit = player.getBlockFromViewDirection({
+                includePassableBlocks: true,
+                maxDistance: 6,
+            });
+            if (hit) {
+                placeOrTakeFluid(itemStack, player, hit);
+            }
         });
     });
 

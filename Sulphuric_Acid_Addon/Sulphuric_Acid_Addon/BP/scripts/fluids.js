@@ -213,7 +213,7 @@ function initialize() {
         }
     });
 
-    world.beforeEvents.itemUseOn.subscribe((ev) => {
+    world.beforeEvents.itemUse.subscribe((ev) => {
         if (currentTickRunned) {
             ev.cancel = true;
             return;
