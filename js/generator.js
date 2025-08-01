@@ -81,5 +81,111 @@ function getManifestJson(packName, packDesc, type, rpUuid) {
     return base;
 }
 
-// Note: The actual implementation of getBlockJson, getBucketItemJson, etc.
-// are now correctly handled by the imported geometric_gen.js script.
+/**
+ * Creates the JSON for the fluid's block definition file based on the whatever.json template.
+ * @param {object} config The fluid configuration from the frontend.
+ * @returns {object}
+ */
+function getBlockJson(config) {
+    const fluidId = config.id;
+    const textureName = fluidId.split(':')[1];
+    const flowingTexture = `flowing_${textureName}`;
+
+    const template = {
+      "format_version": "1.21.40",
+      "minecraft:block": {
+        "description": {
+          "identifier": fluidId,
+          "menu_category": {
+            "category": "none"
+          },
+          "states": {
+            "lumstudio:invisible_east": [0,1,2],
+            "lumstudio:invisible_west": [0,1,2],
+            "lumstudio:invisible_north": [0,1,2],
+            "lumstudio:invisible_south": [0,1,2],
+            "lumstudio:invisible_up": [0,1],
+            "lumstudio:invisible_down": [0,1],
+            "lumstudio:depth": [1, 2, 3, 4, 5, 6, 7, 8],
+            "lumstudio:direction": ["none","s","n","e","w","ns","ne","se","sw"]
+          }
+        },
+        "components": {
+          "minecraft:light_dampening": 0,
+          "minecraft:collision_box": false,
+          "minecraft:selection_box": false,
+          "minecraft:destructible_by_explosion": false,
+          "minecraft:material_instances": {
+            "*": {
+              "texture": textureName,
+              "render_method": "blend",
+              "ambient_occlusion": false,
+              "face_dimming": false
+            }
+          },
+          "minecraft:loot": "loot_tables/empty.json",
+          "tag:custom_fluid": {},
+          "tag:fluid": {}
+        },
+        "permutations": []
+      }
+    };
+
+    const directions = ["none", "s", "n", "e", "w", "ns", "ne", "se", "sw"];
+    const rotations = {
+        "e": [0, 90, 0],
+        "s": [0, 180, 0],
+        "w": [0, -90, 0],
+        "ne": [0, 180, 0],
+        "se": [0, 90, 0],
+        "nw": [0, -90, 0]
+    };
+
+    for (let depth = 1; depth <= 8; depth++) {
+        for (const dir of directions) {
+            const geoLevel = depth === 8 ? 8 : depth;
+            const permutation = {
+                "condition": `q.block_state('lumstudio:depth') == ${depth} && q.block_state('lumstudio:direction') == '${dir}'`,
+                "components": {
+                    "minecraft:geometry": {
+                        "identifier": `geometry.fluid.${geoLevel}`,
+                        "bone_visibility": {
+                            "up": "q.block_state('lumstudio:invisible_up') == 0",
+                            "down": "q.block_state('lumstudio:invisible_down') == 0",
+                            "north": "q.block_state('lumstudio:invisible_north') == 0",
+                            "east": "q.block_state('lumstudio:invisible_east') == 0",
+                            "west": "q.block_state('lumstudio:invisible_west') == 0",
+                            "south": "q.block_state('lumstudio:invisible_south') == 0",
+                            "north_half": "q.block_state('lumstudio:invisible_north') == 1",
+                            "east_half": "q.block_state('lumstudio:invisible_east') == 1",
+                            "west_half": "q.block_state('lumstudio:invisible_west') == 1",
+                            "south_half": "q.block_state('lumstudio:invisible_south') == 1"
+                        }
+                    },
+                    "minecraft:material_instances": {
+                        "*": {
+                            "texture": textureName,
+                            "render_method": "blend",
+                            "face_dimming": false,
+                            "ambient_occlusion": false
+                        },
+                        "up": {
+                            "texture": flowingTexture,
+                            "render_method": "blend",
+                            "face_dimming": false,
+                            "ambient_occlusion": false
+                        }
+                    }
+                }
+            };
+
+            if (rotations[dir]) {
+                permutation.components["minecraft:transformation"] = { "rotation": rotations[dir] };
+            }
+            
+            template["minecraft:block"].permutations.push(permutation);
+        }
+    }
+
+    return template;
+}

@@ -1,4 +1,4 @@
-import { world, system, Player, BlockPermutation, ItemStack, Direction } from "@minecraft/server";
+import { world, system, Player, BlockPermutation, ItemStack, Direction, Block } from "@minecraft/server";
 import { BlockUpdate } from "./BlockUpdate.js";
 import { FluidQueue } from "./queue.js";
 
@@ -32,36 +32,113 @@ const directionToOffset = {
 };
 const Queues = {};
 
+const invisibleStatesNames = [
+  "lumstudio:invisible_north",
+  "lumstudio:invisible_east",
+  "lumstudio:invisible_south",
+  "lumstudio:invisible_west",
+  "lumstudio:invisible_up",
+  "lumstudio:invisible_down"
+];
 
-function fluidState(depth) {
-  if (depth >= 0.875) return "full";
-  if (depth >= 0.75) return "flowing_0";
-  if (depth >= 0.625) return "flowing_1";
-  if (depth >= 0.5) return "flowing_2";
-  if (depth >= 0.375) return "flowing_3";
-  if (depth >= 0.25) return "flowing_4";
-  if (depth >= 0.125) return "flowing_5";
-  return "empty";
+const directionNums = {
+  "n": 0,
+  "none": 0,
+  "e": 1,
+  "s": 2,
+  "w": 3,
+  "ne": 0,
+  "se": 1,
+  "sw": 2,
+  "nw": 3,
+};
+
+/**
+ * 
+ * @param {BlockPermutation} perm1 
+ * @param {BlockPermutation} perm2 
+ */
+function areEqualPerms(perm1, perm2) {
+  if (!perm1 || !perm2) return false;
+  const states1 = perm1.getAllStates();
+  const states2 = perm2.getAllStates();
+  return Object.keys(states1).every((value) => states1[value] === states2[value])
 }
 
-function calculateSlope(b) {
-  const open = [];
-  for (const { dx, dz, facing } of DIRECTIONS) {
-    try {
-      const neighbor = b.offset({ x: dx, y: 0, z: dz });
-      if (neighbor && neighbor.isAir) {
-        open.push(facing);
-      }
-    } catch (e) {}
+/**
+ * Schedules updates for a block's neighbors.
+ * @param {Block} block The block whose neighbors need to be updated.
+ */
+function markNeighborsForUpdate(block) {
+    const queue = Queues[block.typeId];
+    if (!queue) return;
+
+    for (const dir of DIRECTIONS) {
+        const neighbor = block.offset(dir);
+        if (neighbor?.typeId === block.typeId) {
+            queue.add(neighbor);
+        }
+    }
+    const blockAbove = block.above();
+    if (blockAbove?.typeId === block.typeId) {
+        queue.add(blockAbove);
+    }
+    const blockBelow = block.below();
+    if (blockBelow?.typeId === block.typeId) {
+        queue.add(blockBelow);
+    }
+}
+
+
+/**
+ * Refreshes the fluid states.
+ * @param {BlockPermutation} permutation The fluid block permutation.
+ * @param {Record<string, string | number | boolean>[]} neighborStates States of Neighbor fluids
+ * @param {boolean} below 
+ * @param {string} flowDirection The direction of the fluid flow.
+ * @returns new permutation
+ */
+function refreshStates(permutation, neighborStates, below, isSource, flowDirection) {
+  let newPerm = permutation.withState(invisibleStatesNames[5], +below)
+                           .withState("lumstudio:direction", flowDirection);
+
+  const num = directionNums[flowDirection];
+  for (let i = 0; i < 4; i++) {
+    if (neighborStates[i]) {
+      const nDepth = neighborStates[i]["lumstudio:depth"];
+      const depth = permutation.getState("lumstudio:depth");
+      newPerm = newPerm.withState(invisibleStatesNames[(i + num) % 4], depth < nDepth ? 2 : 0)
+    } else {
+      newPerm = newPerm.withState(invisibleStatesNames[(i + num) % 4], 0);
+    }
   }
-  if (open.length === 0) return "none";
-  open.sort();
-  if (open.length === 2) {
-    const combo = open.join("");
-    const diagonals = { "en": "ne", "es": "se", "nw": "nw", "sw": "sw" };
-    if (diagonals[combo]) return diagonals[combo];
+  return newPerm;
+}
+
+/**
+ * Refreshes the fluid states for a falling fluid.
+ * @param {BlockPermutation} permutation The fluid block permutation.
+ * @param {Record<string, string | number | boolean>[]} neighborStates States of Neighbor fluids
+ * @param {boolean} above 
+ * @param {boolean} below 
+ * @param {boolean} isSource 
+ * @returns new permutation
+ */
+function refreshStatesForFalling(permutation, neighborStates, below, above, isSource) {
+  let newPerm = permutation
+    .withState(invisibleStatesNames[4], +above)
+    .withState(invisibleStatesNames[5], +below);
+  for (let i = 0; i < 4; i++) {
+    if (neighborStates[i]) {
+      const nDepth = neighborStates[i]["lumstudio:depth"];
+      const depth = permutation.getState("lumstudio:depth");
+      const isMicro = nDepth === depth - 1 - isSource;
+      newPerm = newPerm.withState(invisibleStatesNames[i], depth < nDepth ? 2 : +isMicro)
+    } else {
+      newPerm = newPerm.withState(invisibleStatesNames[i], 0);
+    }
   }
-  return open[0];
+  return newPerm;
 }
 
 /**
@@ -69,63 +146,73 @@ function calculateSlope(b) {
  * @param {import("@minecraft/server").Block} block The block to update.
  */
 function fluidUpdate(block) {
-    // Ensure the block is valid and has a permutation to work with.
     if (!block || !block.isValid() || !block.permutation) return;
 
-    const currentPermutation = block.permutation;
+    let currentPermutation = block.permutation;
     const blockStates = currentPermutation.getAllStates();
     const depth = blockStates["lumstudio:depth"];
     const fluidMode = blockStates["lumstudio:fluidMode"];
     const isSourceBlock = depth === MAX_SPREAD_DISTANCE;
 
-    // Determine if the fluid should be flowing downwards.
-    // This happens if there's fluid above it or if it's already in an "active" (falling) state.
     const blockAbove = block.above();
-    const isFlowingDownward = (blockAbove?.typeId === block.typeId) || (fluidMode === "active");
+    let isFlowingDownward = (blockAbove?.typeId === block.typeId) || (fluidMode === "active");
 
-    // --- 1. Downward Flow ---
-    // If the block below is air, the fluid should fall into it.
     const blockBelow = block.below();
     if (blockBelow?.isAir) {
-        // Set the block below to be an active, falling fluid.
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:fluidMode", "active");
         blockBelow.setPermutation(fallingFluidPermutation);
+        markNeighborsForUpdate(blockBelow);
 
-        // If the current block is not a source block, remove it as it has flowed downwards.
         if (!isSourceBlock) {
             block.setType('air');
+            markNeighborsForUpdate(block);
         }
-        return; // The update is complete for this block.
+        return;
     }
 
-    // --- 2. Sustainability Check ---
-    // Determine if the fluid block should be allowed to exist.
-    // A fluid block is sustained if it's a source, has a source above it, or is fed by a neighboring fluid block with a greater depth.
     let canBeSustained = isSourceBlock;
+    let neighborWithGreaterDepth = false;
+    let maxNeighborDepth = -1;
+    let flowDirection = "none";
+    const neighborStates = [];
+
+    for (let i = 0; i < DIRECTIONS.length; i++) {
+        const dir = DIRECTIONS[i];
+        const neighbor = block.offset(dir);
+        if (neighbor?.typeId === block.typeId) {
+            const states = neighbor.permutation.getAllStates();
+            neighborStates.push(states);
+            if (states["lumstudio:depth"] > depth) {
+                neighborWithGreaterDepth = true;
+            }
+            if (states["lumstudio:depth"] > maxNeighborDepth) {
+                maxNeighborDepth = states["lumstudio:depth"];
+                flowDirection = dir.facing;
+            }
+        } else {
+            neighborStates.push(undefined);
+        }
+    }
+
     if (!canBeSustained) {
         if (blockAbove?.typeId === block.typeId) {
-            // Check for a source from above
             canBeSustained = true;
         } else {
-            // Check for a source from horizontal neighbors
-            for (const dir of DIRECTIONS) {
-                const neighbor = block.offset(dir);
-                if (neighbor?.typeId === block.typeId && neighbor.permutation.getState("lumstudio:depth") > depth) {
-                    canBeSustained = true;
-                    break;
-                }
-            }
+            canBeSustained = neighborWithGreaterDepth;
         }
     }
 
-    // If the block cannot be sustained, it dries up.
     if (!canBeSustained) {
         block.setType('air');
-        return; // The update is complete for this block.
+        markNeighborsForUpdate(block);
+        return;
+    }
+    
+    if (blockAbove?.typeId === block.typeId && fluidMode !== "active") {
+        isFlowingDownward = true;
+        currentPermutation = currentPermutation.withState("lumstudio:fluidMode", "active");
     }
 
-    // --- 3. Outward Spread ---
-    // If the fluid is not falling and has depth, it should spread to adjacent air blocks.
     if (depth > 0 && !isFlowingDownward) {
         const newDepth = depth - 1;
         if (newDepth >= 0) {
@@ -134,24 +221,23 @@ function fluidUpdate(block) {
                 if (neighbor?.isAir) {
                     const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
                     neighbor.setPermutation(spreadingPermutation);
+                    markNeighborsForUpdate(neighbor);
                 }
             }
         }
     }
 
-    // --- 4. Final State Update ---
-    // Calculate the final visual state (slope, model, etc.) and apply it to the current block.
-    const newSlope = calculateSlope(block);
-    const newFluidModel = fluidState(depth / MAX_SPREAD_DISTANCE);
-    const newMode = isFlowingDownward ? "active" : "dormant";
-    
-    const newPermutation = currentPermutation.withState("fluid_state", newFluidModel)
-                                           .withState("slope", newSlope)
-                                           .withState("lumstudio:fluidMode", newMode);
+    const hasFluidBelow = block.below().typeId === block.typeId;
+    let newPermutation;
+    if (isFlowingDownward) {
+        newPermutation = refreshStatesForFalling(currentPermutation, neighborStates, hasFluidBelow, blockAbove?.typeId === block.typeId, isSourceBlock);
+    } else {
+        newPermutation = refreshStates(currentPermutation, neighborStates, hasFluidBelow, isSourceBlock, flowDirection);
+    }
 
-    // Only set the permutation if it has actually changed to avoid unnecessary block updates.
-    if (!block.permutation.matches(newPermutation.type, newPermutation.getAllStates())) {
+    if (!areEqualPerms(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
+        markNeighborsForUpdate(block);
     }
 }
 
@@ -178,8 +264,7 @@ function placeOrTakeFluid(itemStack, player, hit) {
     
     const finalPermutation = fluidPermutation
         .withState("lumstudio:depth", 7)
-        .withState("slope", "none")
-        .withState("fluid_state", "full")
+        .withState("lumstudio:direction", "none")
         .withState("lumstudio:fluidMode", "dormant");
 
     targetBlock.setPermutation(finalPermutation);
@@ -188,8 +273,8 @@ function placeOrTakeFluid(itemStack, player, hit) {
     return;
   }
 
-  const fluidState = targetBlock.permutation?.getState("fluid_state");
-  if (targetBlock.hasTag("fluid") && fluidState === "full" && itemStack.typeId === "minecraft:bucket") {
+  const fluidDepth = targetBlock.permutation?.getState("lumstudio:depth");
+  if (targetBlock.hasTag("fluid") && fluidDepth === MAX_SPREAD_DISTANCE && itemStack.typeId === "minecraft:bucket") {
     const bucketItem = new ItemStack(`${targetBlock.typeId}_bucket`); 
     
     targetBlock.setType('air');
@@ -206,11 +291,24 @@ function initialize() {
     }
 
     BlockUpdate.on((update) => {
+        if (!update) {
+            console.warn("BlockUpdate.on received a falsy update object.");
+            return;
+        }
         const { block } = update;
-        if (block && block.isValid()) {
+        if (!block) {
+            console.warn("BlockUpdate.on: update object has no 'block' property.");
+            return;
+        }
+
+        if (block.isValid()) {
             const queue = Queues[block.typeId];
             if (queue) {
-                queue.add(block);
+                if (typeof queue.add === 'function') {
+                    queue.add(block);
+                } else {
+                    console.error(`Error: queue.add is not a function for fluid ${block.typeId}.`);
+                }
             }
         }
     });

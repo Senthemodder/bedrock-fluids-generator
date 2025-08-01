@@ -46,7 +46,6 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         const packDesc = `A custom fluid pack for ${config.name}. Made with Bedrock Fluids API.`;
 
         // --- Generate Core Assets ---
-        const geometry = generateGeometries();
         const blockJson = getBlockJson(config);
         const bucketJson = generateBucketItemJson(config);
         
@@ -57,6 +56,11 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
             .setDistance("weather", 0.0, 15.0, config.fogColor)
             .build();
         
+        // --- Fetch Static Assets ---
+        const fluidGeoResponse = await fetch('js/fluid.geo.json');
+        if (!fluidGeoResponse.ok) throw new Error('Could not load fluid.geo.json.');
+        const fluidGeoContent = await fluidGeoResponse.text();
+
         // --- Generate Manifests ---
         const rpManifest = getManifestJson(packName, packDesc, "resources");
         const bpManifest = getManifestJson(packName, packDesc, "behaviors", rpManifest.header.uuid);
@@ -113,7 +117,7 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         rp.file('blocks.json', JSON.stringify(blocksRpJson, null, 2));
         rp.folder('textures').file('item_texture.json', JSON.stringify(itemTextureJson, null, 2));
         rp.folder('textures').file('terrain_texture.json', JSON.stringify(terrainTextureJson, null, 2));
-        rp.folder('models/blocks').file('fluid_geometry.json', JSON.stringify(geometry, null, 2));
+        rp.folder('models/blocks').file('fluid.geo.json', fluidGeoContent);
         rp.folder('textures/blocks').file(`${safeId}.png`, textureBuffer);
         rp.folder('textures/items').file(`${safeId}_bucket.png`, bucketTextureBuffer);
 

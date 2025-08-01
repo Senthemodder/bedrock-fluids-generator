@@ -1,9 +1,0 @@
-{
-  "resource_pack_name": "vanilla",
-  "texture_name": "atlas.items",
-  "texture_data": {
-    "lumstudio_sulphuric_acid_bucket": {
-      "textures": "textures/items/lumstudio_sulphuric_acid_bucket"
-    }
-  }
-}
