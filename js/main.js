@@ -58,8 +58,8 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
             .build();
         
         // --- Generate Manifests ---
-        const bpManifest = getManifestJson(packName, packDesc, "behaviors");
         const rpManifest = getManifestJson(packName, packDesc, "resources");
+        const bpManifest = getManifestJson(packName, packDesc, "behaviors", rpManifest.header.uuid);
 
         // --- Behavior Pack (BP) ---
         const bp = zip.folder('BP');

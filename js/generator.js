@@ -27,7 +27,7 @@ function getRegistryScript(config) {
     return `export const FluidRegistry = ${JSON.stringify(registry, null, 2)};`;
 }
 
-function getManifestJson(packName, packDesc, type) {
+function getManifestJson(packName, packDesc, type, rpUuid) {
     const headerUuid = uuid.v4();
     const base = {
         format_version: 2,
@@ -66,7 +66,15 @@ function getManifestJson(packName, packDesc, type) {
         base.dependencies = [
             {
                 "module_name": "@minecraft/server",
-                "version": "2.1.0-beta"
+                "version": "2.0.0"
+            },
+            {
+                "module_name": "@minecraft/server-ui",
+                "version": "1.1.0"
+            },
+            {
+                "uuid": rpUuid,
+                "version": [1, 0, 0]
             }
         ];
     }
