@@ -290,16 +290,16 @@ function fluidUpdate(block) {
  * Handles the logic for a player using a custom fluid bucket.
  * @param {ItemStack} itemStack The item being used.
  * @param {Player} player The player using the item.
- * @param {BlockHitInformation} hit The block hit information from the player's view.
+ * @param {Block} block The block that was interacted with.
+ * @param {Direction} face The face of the block that was interacted with.
  */
-function placeFluidWithBucket(itemStack, player, hit) {
+function placeFluidWithBucket(itemStack, player, block, face) {
   const isFluidBucket = itemStack.typeId.endsWith('_bucket');
-  if (!hit || !isFluidBucket) return;
+  if (!isFluidBucket) return;
 
-  const { face, block } = hit;
   const targetBlock = block.offset(directionToOffset[face]);
 
-  if (targetBlock.isAir) {
+  if (targetBlock && targetBlock.isAir) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
     if (!FluidRegistry[fluidTypeId]) return;
 
@@ -354,7 +354,7 @@ function initialize() {
             
             // Run the placement logic in the next tick.
             system.run(() => {
-                placeFluidWithBucket(itemStack, player, { block, face: event.face });
+                placeFluidWithBucket(itemStack, player, block, event.face);
             });
         }
     });

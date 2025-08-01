@@ -118,13 +118,34 @@ class BlockUpdate {
       }
     }
   }
+
+  /**
+   * Triggers an update for all neighbors around a specific location.
+   * This is used when the source block itself might be invalid (e.g., after being broken).
+   * @param {Dimension} dimension The dimension of the update.
+   * @param {Vector3} location The location of the update.
+   * @param {Block} [sourceBlock=undefined] The optional source block of the change.
+   */
+  static triggerForNeighborsAt(dimension, location, sourceBlock = undefined) {
+      for (const offset of NEIGHBOR_OFFSETS) {
+          try {
+              const targetLocation = { x: location.x + offset.x, y: location.y + offset.y, z: location.z + offset.z };
+              const targetBlock = dimension.getBlock(targetLocation);
+              if (targetBlock) {
+                  BlockUpdate.#triggerForAllListeners({ block: targetBlock, source: sourceBlock });
+              }
+          } catch (e) {
+              // Ignore errors for out-of-world locations
+          }
+      }
+  }
 }
 
 // --- Event Subscription ---
 // We subscribe to all relevant world events to automatically trigger our custom BlockUpdate event.
 
 /**
- * A simple helper function to trigger an update from events that provide a `block` property.
+ * A simple helper function to trigger an update from events that provide a valid `block` property.
  * @param {{ block: Block }} eventData The event data from the Minecraft API.
  */
 const easyTrigger = (eventData) => {
@@ -135,7 +156,11 @@ const easyTrigger = (eventData) => {
 
 // Player-related block changes
 world.afterEvents.playerPlaceBlock.subscribe(easyTrigger);
-world.afterEvents.playerBreakBlock.subscribe(easyTrigger);
+
+// Special handling for playerBreakBlock where the event's block is no longer valid.
+world.afterEvents.playerBreakBlock.subscribe((eventData) => {
+    BlockUpdate.triggerForNeighborsAt(eventData.dimension, eventData.block.location, eventData.player);
+});
 
 // Redstone-related block changes
 world.afterEvents.buttonPush.subscribe(easyTrigger);
