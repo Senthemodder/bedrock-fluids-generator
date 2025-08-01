@@ -220,8 +220,10 @@ function getBlockJson(config) {
             "conditions": [{ "allowed_faces": ["up", "down", "north", "south", "east", "west"] }]
         })
         .addComponent("minecraft:loot", "loot_tables/empty.json")
-        .addComponent("minecraft:destructible_by_mining", { "seconds_to_destroy": 100 })
-        .addComponent("minecraft:destructible_by_explosion", { "explosion_resistance": 500 });
+        .addComponent("minecraft:destructible_by_mining", false)
+        .addComponent("minecraft:collision_box", false)
+        .addComponent("minecraft:selection_box", false)
+        .addComponent("minecraft:destructible_by_explosion", false);
 
     if (config.lightLevel && config.lightLevel > 0) {
         generator.addComponent("minecraft:light_emission", config.lightLevel);

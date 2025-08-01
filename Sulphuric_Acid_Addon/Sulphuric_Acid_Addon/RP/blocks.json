@@ -1,0 +1,7 @@
+{
+  "format_version": "1.21.40",
+  "lumstudio:sulphuric_acid": {
+    "sound": "bucket.fill_lava",
+    "textures": "lumstudio_sulphuric_acid"
+  }
+}
