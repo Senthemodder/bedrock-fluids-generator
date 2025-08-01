@@ -53,11 +53,6 @@ const directionNums = {
   "nw": 3,
 };
 
-/**
- * 
- * @param {BlockPermutation} perm1 
- * @param {BlockPermutation} perm2 
- */
 function areEqualPerms(perm1, perm2) {
   if (!perm1 || !perm2) return false;
   const states1 = perm1.getAllStates();
@@ -65,15 +60,6 @@ function areEqualPerms(perm1, perm2) {
   return Object.keys(states1).every((value) => states1[value] === states2[value])
 }
 
-
-/**
- * Refreshes the fluid states.
- * @param {BlockPermutation} permutation The fluid block permutation.
- * @param {Record<string, string | number | boolean>[]} neighborStates States of Neighbor fluids
- * @param {boolean} below 
- * @param {string} flowDirection The direction of the fluid flow.
- * @returns new permutation
- */
 function refreshStates(permutation, neighborStates, below, isSource, flowDirection) {
   let newPerm = permutation.withState(invisibleStatesNames[5], +below)
                            .withState("lumstudio:direction", flowDirection);
@@ -91,15 +77,6 @@ function refreshStates(permutation, neighborStates, below, isSource, flowDirecti
   return newPerm;
 }
 
-/**
- * Refreshes the fluid states for a falling fluid.
- * @param {BlockPermutation} permutation The fluid block permutation.
- * @param {Record<string, string | number | boolean>[]} neighborStates States of Neighbor fluids
- * @param {boolean} above 
- * @param {boolean} below 
- * @param {boolean} isSource 
- * @returns new permutation
- */
 function refreshStatesForFalling(permutation, neighborStates, below, above, isSource) {
   let newPerm = permutation
     .withState(invisibleStatesNames[4], +above)
@@ -117,12 +94,12 @@ function refreshStatesForFalling(permutation, neighborStates, below, above, isSo
   return newPerm;
 }
 
-/**
- * Processes a single fluid block update. This function is the core of the fluid simulation logic.
- * @param {import("@minecraft/server").Block} block The block to update.
- */
 function fluidUpdate(block) {
     if (!block || !block.isValid() || !block.permutation) return;
+
+    const typeId = block.typeId;
+    const queue = Queues[typeId];
+    if (!queue) return;
 
     let currentPermutation = block.permutation;
     const blockStates = currentPermutation.getAllStates();
@@ -130,17 +107,16 @@ function fluidUpdate(block) {
     const isSourceBlock = depth === MAX_SPREAD_DISTANCE;
 
     const blockAbove = block.above();
-    let isFlowingDownward = (blockAbove?.typeId === block.typeId);
+    let isFlowingDownward = (blockAbove?.typeId === typeId);
 
     const blockBelow = block.below();
     if (blockBelow?.isAir) {
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
-        BlockUpdate.trigger(blockBelow);
+        queue.add(blockBelow);
 
         if (!isSourceBlock) {
             block.setType('air');
-            BlockUpdate.trigger(block);
         }
         return;
     }
@@ -154,7 +130,7 @@ function fluidUpdate(block) {
     for (let i = 0; i < DIRECTIONS.length; i++) {
         const dir = DIRECTIONS[i];
         const neighbor = block.offset(dir);
-        if (neighbor?.typeId === block.typeId) {
+        if (neighbor?.typeId === typeId) {
             const states = neighbor.permutation.getAllStates();
             neighborStates.push(states);
             if (states["lumstudio:depth"] > depth) {
@@ -170,7 +146,7 @@ function fluidUpdate(block) {
     }
 
     if (!canBeSustained) {
-        if (blockAbove?.typeId === block.typeId) {
+        if (blockAbove?.typeId === typeId) {
             canBeSustained = true;
         } else {
             canBeSustained = neighborWithGreaterDepth;
@@ -179,57 +155,46 @@ function fluidUpdate(block) {
 
     if (!canBeSustained) {
         block.setType('air');
-        BlockUpdate.trigger(block);
         return;
     }
     
-    if (blockAbove?.typeId === block.typeId) {
+    if (blockAbove?.typeId === typeId) {
         isFlowingDownward = true;
     }
 
-    if (depth > 0 && !isFlowingDownward) {
+    if (depth > 1 && !isFlowingDownward) {
         const newDepth = depth - 1;
-        if (newDepth > 0) {
-            for (const dir of DIRECTIONS) {
-                const neighbor = block.offset(dir);
-                if (neighbor?.isAir) {
-                    const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
-                    neighbor.setPermutation(spreadingPermutation);
-                    BlockUpdate.trigger(neighbor);
-                }
+        for (const dir of DIRECTIONS) {
+            const neighbor = block.offset(dir);
+            if (neighbor?.isAir) {
+                const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
+                neighbor.setPermutation(spreadingPermutation);
+                queue.add(neighbor);
             }
         }
     }
 
-    const hasFluidBelow = block.below().typeId === block.typeId;
+    const hasFluidBelow = block.below().typeId === typeId;
     let newPermutation;
     if (isFlowingDownward) {
-        newPermutation = refreshStatesForFalling(currentPermutation, neighborStates, hasFluidBelow, blockAbove?.typeId === block.typeId, isSourceBlock);
+        newPermutation = refreshStatesForFalling(currentPermutation, neighborStates, hasFluidBelow, blockAbove?.typeId === typeId, isSourceBlock);
     } else {
         newPermutation = refreshStates(currentPermutation, neighborStates, hasFluidBelow, isSourceBlock, flowDirection);
     }
 
     if (!areEqualPerms(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
-        BlockUpdate.trigger(block);
     }
 }
 
-/**
- * Handles the logic for placing fluid from a bucket or picking it up into an empty bucket.
- * This function is called when a player uses an item.
- * @param {ItemStack} itemStack The item that was used.
- * @param {Player} player The player who used the item.
- * @param {import("@minecraft/server").BlockHitInformation} hit The block that was hit by the player's view, or null.
- */
 function placeOrTakeFluid(itemStack, player, hit) {
   const isFluidBucket = itemStack.typeId.endsWith('_bucket');
-  if (!hit) return;
+  if (!hit || !isFluidBucket) return;
 
   const { face, block } = hit;
   const targetBlock = block.offset(directionToOffset[face]);
 
-  if (targetBlock.isAir && isFluidBucket) {
+  if (targetBlock.isAir) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
     if (!FluidRegistry[fluidTypeId]) return;
 
@@ -242,16 +207,12 @@ function placeOrTakeFluid(itemStack, player, hit) {
 
     targetBlock.setPermutation(finalPermutation);
     
-    player.getComponent("equippable").setEquipment("Mainhand", new ItemStack("bucket"));
-    return;
-  }
+    const queue = Queues[fluidTypeId];
+    if (queue) {
+        queue.add(targetBlock);
+    }
 
-  const fluidDepth = targetBlock.permutation?.getState("lumstudio:depth");
-  if (targetBlock.hasTag("fluid") && fluidDepth === MAX_SPREAD_DISTANCE && itemStack.typeId === "minecraft:bucket") {
-    const bucketItem = new ItemStack(`${targetBlock.typeId}_bucket`); 
-    
-    targetBlock.setType('air');
-    player.getComponent("equippable").setEquipment("Mainhand", bucketItem);
+    player.getComponent("equippable").setEquipment("Mainhand", new ItemStack("bucket"));
   }
 }
 
@@ -264,25 +225,13 @@ function initialize() {
     }
 
     BlockUpdate.on((update) => {
-        if (!update) {
-            console.warn("BlockUpdate.on received a falsy update object.");
-            return;
-        }
+        if (!update) return;
         const { block } = update;
-        if (!block) {
-            console.warn("BlockUpdate.on: update object has no 'block' property.");
-            return;
-        }
+        if (!block || !block.isValid()) return;
 
-        if (block.isValid()) {
-            const queue = Queues[block.typeId];
-            if (queue) {
-                if (typeof queue.add === 'function') {
-                    queue.add(block);
-                } else {
-                    console.error(`Error: queue.add is not a function for fluid ${block.typeId}.`);
-                }
-            }
+        const queue = Queues[block.typeId];
+        if (queue) {
+            queue.add(block);
         }
     });
 
@@ -298,26 +247,84 @@ function initialize() {
         });
     });
 
+    world.beforeEvents.playerInteractWithEntity.subscribe(event => {
+        const { player, target } = event;
+        if (target.typeId === 'lumstudio:fluid_pickup_entity') {
+            event.cancel = true;
+            system.run(() => {
+                const block = target.dimension.getBlock(target.location);
+                if (block && block.hasTag("fluid")) {
+                    const bucketItem = new ItemStack(`${block.typeId}_bucket`);
+                    player.getComponent("equippable").setEquipment("Mainhand", bucketItem);
+                    block.setType('air');
+                }
+                target.kill();
+            });
+        }
+    });
+
     const entityLocations = new Map();
     const entitiesInFluid = new Set();
+    const pickupEntities = new Map();
 
     system.runInterval(() => {
+        // Cleanup invalid entities from trackers first
+        for (const entityId of entitiesInFluid) {
+            if (!world.getEntity(entityId)?.isValid()) {
+                entitiesInFluid.delete(entityId);
+                entityLocations.delete(entityId);
+            }
+        }
+        for (const [loc, id] of pickupEntities.entries()) {
+            if (!world.getEntity(id)?.isValid()) {
+                pickupEntities.delete(loc);
+            }
+        }
+
+        for (const player of world.getAllPlayers()) {
+            const mainhandItem = player.getComponent("equippable").getEquipment("Mainhand");
+            const hit = player.getBlockFromViewDirection({
+                includePassableBlocks: false,
+                maxDistance: 6,
+            });
+
+            const locStr = hit?.block ? `${hit.block.location.x},${hit.block.location.y},${hit.block.location.z}` : null;
+
+            // Despawn any existing pickup entity if conditions are no longer met
+            if (pickupEntities.has(player.id) && pickupEntities.get(player.id).location !== locStr) {
+                const oldEntity = world.getEntity(pickupEntities.get(player.id).id);
+                if (oldEntity) oldEntity.kill();
+                pickupEntities.delete(player.id);
+            }
+
+            if (hit && mainhandItem?.typeId === 'minecraft:bucket') {
+                const { block } = hit;
+                const depth = block.permutation?.getState("lumstudio:depth");
+
+                if (block.hasTag("fluid") && depth === MAX_SPREAD_DISTANCE && !pickupEntities.has(player.id)) {
+                    const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', block.center());
+                    pickupEntities.set(player.id, { id: entity.id, location: locStr });
+                }
+            }
+        }
+
+
         const dimensions = [
             world.getDimension("overworld"),
             world.getDimension("nether"),
             world.getDimension("the_end")
         ];
 
-        // Part 1: Update the set of entities that are currently in a fluid.
         for (const dimension of dimensions) {
-            if (!dimension) continue; // Skip if a dimension doesn't exist
+            if (!dimension) continue;
             for (const entity of dimension.getEntities({})) {
+                if (!entity.isValid()) continue; // Early exit for invalid entities
+
                 const lastLocation = entityLocations.get(entity.id);
                 const currentLocation = entity.location;
 
-                // Check if the entity has moved to a new block, or if it's the first time we've seen it.
                 if (!lastLocation || Math.floor(currentLocation.x) !== Math.floor(lastLocation.x) || Math.floor(currentLocation.y) !== Math.floor(lastLocation.y) || Math.floor(currentLocation.z) !== Math.floor(lastLocation.z)) {
-                    entityLocations.set(entity.id, currentLocation); // Update the known location
+                    entityLocations.set(entity.id, currentLocation);
 
                     const newBlock = entity.dimension.getBlock(currentLocation);
                     const isInFluid = FluidRegistry[newBlock?.typeId];
@@ -325,7 +332,6 @@ function initialize() {
                     if (isInFluid) {
                         entitiesInFluid.add(entity.id);
                     } else if (entitiesInFluid.has(entity.id)) {
-                        // Entity was in a fluid but is no longer.
                         entitiesInFluid.delete(entity.id);
                         if (entity.typeId === "minecraft:player") {
                             entity.runCommand("fog @s remove fluid_fog");
@@ -335,21 +341,13 @@ function initialize() {
             }
         }
 
-        // Part 2: Apply effects to all entities that are currently in the fluid set.
         for (const entityId of entitiesInFluid) {
             const entity = world.getEntity(entityId);
-
-            // if entity is invalid, remove it from all trackers.
-            if (!entity || !entity.isValid()) {
-                entitiesInFluid.delete(entityId);
-                entityLocations.delete(entityId);
-                continue;
-            }
+            if (!entity) continue;
 
             const bodyBlock = entity.dimension.getBlock(entity.location);
             const fluidDataInBody = FluidRegistry[bodyBlock?.typeId];
 
-            // if entity is somehow not in a fluid anymore, remove it.
             if (!fluidDataInBody) {
                 entitiesInFluid.delete(entityId);
                 if (entity.typeId === "minecraft:player") {
@@ -358,7 +356,6 @@ function initialize() {
                 continue;
             }
 
-            // --- Player-Specific Effects (Fog) ---
             if (entity.typeId === "minecraft:player") {
                 const headBlock = entity.getHeadLocation();
                 const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
@@ -371,7 +368,6 @@ function initialize() {
                 }
             }
 
-            // --- General Entity Effects ---
             if (entity.isJumping) {
                 entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
             }
@@ -380,7 +376,6 @@ function initialize() {
                 entity.applyKnockback(0, 0, 0, Math.abs(velocity.y) * 0.3 + (fluidDataInBody.buoyancy || 0));
             }
 
-            // Apply all other effects from the handler system
             for (const key in fluidDataInBody) {
                 if (effectHandlers[key]) {
                     try {
@@ -391,8 +386,7 @@ function initialize() {
                 }
             }
         }
-    }, 4); // Run the entire check 5 times a second (every 4 ticks)
+    }, 4);
 }
 
-// Initialize the entire system
 initialize();

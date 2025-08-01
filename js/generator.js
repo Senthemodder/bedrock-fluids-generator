@@ -88,7 +88,7 @@ function getManifestJson(packName, packDesc, type, rpUuid) {
  */
 function getBlockJson(config) {
     const fluidId = config.id;
-    const textureName = fluidId.replace(':', '_'); // This is the correct texture alias
+    const textureName = fluidId.replace(':', '_');
     const flowingTexture = `flowing_${textureName}`;
 
     const template = {
@@ -148,6 +148,8 @@ function getBlockJson(config) {
     for (let depth = 1; depth <= 8; depth++) {
         for (const dir of directions) {
             const geoLevel = depth === 8 ? 8 : depth;
+            const upTexture = (dir === "none" && depth === 7) ? textureName : flowingTexture;
+
             const permutation = {
                 "condition": `q.block_state('lumstudio:depth') == ${depth} && q.block_state('lumstudio:direction') == '${dir}'`,
                 "components": {
@@ -174,7 +176,7 @@ function getBlockJson(config) {
                             "ambient_occlusion": false
                         },
                         "up": {
-                            "texture": flowingTexture,
+                            "texture": upTexture,
                             "render_method": "blend",
                             "face_dimming": false,
                             "ambient_occlusion": false
