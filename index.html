@@ -1,174 +1,228 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Custom Fluid Maker for GitHub Pages</title>
-  <!-- Load Libraries from CDN -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css" />
-  <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f3f3f3;
-      margin: 0;
-      padding: 2rem;
-    }
-    .container {
-      max-width: 600px;
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      margin: auto;
-    }
-    h1 {
-      text-align: center;
-    }
-    label {
-      display: block;
-      margin-top: 1rem;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 0.75rem;
-      margin-top: 0.25rem;
-      box-sizing: border-box;
-    }
-    input[type="range"] {
-      padding: 0;
-    }
-    output {
-      display: inline-block;
-      margin-left: 0.5rem;
-      font-weight: bold;
-    }
-    .checkboxes {
-      margin-top: 1rem;
-    }
-    .checkboxes label {
-      display: flex;
-      align-items: center;
-    }
-    .checkboxes input {
-      width: auto;
-      margin-right: 0.5rem;
-    }
-    button {
-      margin-top: 2rem;
-      background: #007acc;
-      color: white;
-      font-size: 1rem;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background: #005fa3;
-    }
-    button:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-    }
-    .status {
-      text-align: center;
-      margin-top: 1rem;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bedrock Fluid Generator</title>
+    
+    <!-- Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css" />
+    <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --bs-body-bg: #1a1a1a;
+            --bs-dark-rgb: 43, 48, 53;
+        }
+        .preview-box {
+            width: 100%;
+            height: 150px;
+            border: 2px dashed #444;
+            border-radius: 0.375rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-weight: bold;
+            background-size: cover;
+            background-position: center;
+        }
+        .texture-preview {
+            width: 64px;
+            height: 64px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            display: inline-block;
+            margin-left: 1rem;
+            vertical-align: middle;
+        }
+        .form-label {
+            font-weight: 500;
+        }
+        .form-text {
+            font-size: 0.875em;
+        }
+        .btn-primary {
+            --bs-btn-bg: #0d6efd;
+            --bs-btn-hover-bg: #0b5ed7;
+        }
+        #statusMessage {
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Custom Fluid Maker</h1>
-    <form id="fluidForm">
-      <label for="fluidName">Fluid Name</label>
-      <input type="text" id="fluidName" placeholder="e.g. Liquid Bismuth" required />
+    <div class="container py-5">
+        <header class="text-center mb-5">
+            <h1>Bedrock Fluid Generator</h1>
+            <p class="lead text-muted">Create custom fluid packs for Minecraft Bedrock Edition</p>
+        </header>
 
-      <label for="fluidID">Block ID (must include namespace)</label>
-      <input type="text" id="fluidID" placeholder="e.g. lumstudio:liquid_bismuth" required pattern="[a-z_]+:[a-z_]+" />
-
-      <label for="texture">Upload Fluid Texture (PNG)</label>
-      <input type="file" id="texture" accept="image/png" required />
-
-      <label for="flowingTexture">Upload Flowing Fluid Texture (PNG, optional)</label>
-      <input type="file" id="flowingTexture" accept="image/png" />
-
-      <label for="bucketTexture">Upload Bucket Texture (PNG)</label>
-      <input type="file" id="bucketTexture" accept="image/png" required />
-
-      <label for="packIcon">Pack Icon (optional)</label>
-      <input type="file" id="packIcon" accept="image/png" />
-
-      <label for="fogColor">Fog Color</label>
-      <input type="text" id="fogColor" data-coloris value="#777777" />
-
-      <label for="buoyancy">Buoyancy</label>
-      <input type="number" id="buoyancy" step="0.01" value="0.03" />
-
-      <label for="damage">Damage Per Tick</label>
-      <input type="number" id="damage" step="1" value="0" />
-
-      <label for="lightLevel" class="form-label">Light Level (0-15)</label>
-                        <input type="number" class="form-control" id="lightLevel" value="0" min="0" max="15">
+        <form id="fluidForm">
+            <div class="row g-5">
+                <!-- Left Column: Fluid Properties -->
+                <div class="col-lg-6">
+                    <h3 class="mb-4">Fluid Properties</h3>
+                    
+                    <div class="mb-3">
+                        <label for="fluidName" class="form-label">Fluid Name</label>
+                        <input type="text" class="form-control" id="fluidName" placeholder="e.g., Liquid Bismuth" required />
                     </div>
-                    <div class="col-md-6">
-                        <label for="tickDelay" class="form-label">Flow Speed (Tick Delay)</label>
-                        <input type="number" class="form-control" id="tickDelay" value="5" min="1" max="100">
-                        <div class="form-text">Time in ticks between each flow step. Higher is slower. (Water=5, Lava=30).</div>
+
+                    <div class="mb-3">
+                        <label for="fluidID" class="form-label">Block ID</label>
+                        <input type="text" class="form-control" id="fluidID" placeholder="namespace:id (e.g., lum:bismuth)" required pattern="[a-z_]+:[a-z_]+" />
+                        <div class="form-text">Must be in the format `namespace:identifier`.</div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="lightLevel" class="form-label">Light Level (0-15)</label>
+                            <input type="number" class="form-control" id="lightLevel" value="0" min="0" max="15">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="tickDelay" class="form-label">Flow Speed (Tick Delay)</label>
+                            <input type="number" class="form-control" id="tickDelay" value="5" min="1" max="100">
+                            <div class="form-text">Higher is slower. (Water=5, Lava=30).</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="buoyancy" class="form-label">Buoyancy</label>
+                            <input type="number" class="form-control" id="buoyancy" step="0.01" value="0.03" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="damage" class="form-label">Damage Per Tick</label>
+                            <input type="number" class="form-control" id="damage" step="1" value="0" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="effect" class="form-label">Status Effect</label>
+                            <select id="effect" class="form-select">
+                                <option value="">None</option>
+                                <option value="poison">Poison</option>
+                                <option value="wither">Wither</option>
+                                <option value="slowness">Slowness</option>
+                                <option value="weakness">Weakness</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fogColor" class="form-label">Fog Color</label>
+                            <input type="text" class="form-control" id="fogColor" data-coloris value="#777777" />
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="burnsEntities">
+                        <label class="form-check-label" for="burnsEntities">Burns Entities</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="supportsBoats" checked>
+                        <label class="form-check-label" for="supportsBoats">Supports Boats</label>
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="effect" class="form-label">Status Effect</label>
-                        <select id="effect" class="form-select">
-                            <option value="">None</option>
-                            <option value="poison">Poison</option>
-                            <option value="wither">Wither</option>
-                            <option value="slowness">Slowness</option>
-                            <option value="weakness">Weakness</option>
-                        </select>
+                <!-- Right Column: Textures & Preview -->
+                <div class="col-lg-6">
+                    <h3 class="mb-4">Textures & Icon</h3>
+                    
+                    <div class="mb-3">
+                        <label for="texture" class="form-label">Still Fluid Texture <span class="texture-preview" id="texture_preview"></span></label>
+                        <input type="file" class="form-control" id="texture" accept="image/png" required />
                     </div>
 
-      <div class="checkboxes">
-        <label><input type="checkbox" id="burnsEntities" /> Burns Entities</label>
-        <label><input type="checkbox" id="supportsBoats" checked /> Supports Boats</label>
-      </div>
+                    <div class="mb-3">
+                        <label for="flowingTexture" class="form-label">Flowing Fluid Texture <span class="texture-preview" id="flowingTexture_preview"></span></label>
+                        <input type="file" class="form-control" id="flowingTexture" accept="image/png" />
+                    </div>
 
-      <button type="submit" id="generateButton">Generate Fluid Pack</button>
-      <div class="status" id="statusMessage"></div>
-    </form>
-  </div>
+                    <div class="mb-3">
+                        <label for="bucketTexture" class="form-label">Bucket Texture <span class="texture-preview" id="bucketTexture_preview"></span></label>
+                        <input type="file" class="form-control" id="bucketTexture" accept="image/png" required />
+                    </div>
 
-  <!-- Load the generator logic -->
-  <script src="js/fog_generator.js"></script>
-  <script src="js/bucket_generator.js"></script>
-  <script src="js/generator.js"></script>
-  
-  <!-- Main application script -->
-  <script type="module" src="js/main.js"></script>
+                    <div class="mb-3">
+                        <label for="packIcon" class="form-label">Pack Icon <span class="texture-preview" id="packIcon_preview"></span></label>
+                        <input type="file" class="form-control" id="packIcon" accept="image/png" />
+                    </div>
 
-  <!-- Initialize Coloris -->
-  <script>
-    Coloris({
-      el: '[data-coloris]',
-      swatches: [
-        '#264653',
-        '#2a9d8f',
-        '#e9c46a',
-        '#f4a261',
-        '#e76f51',
-        '#d62828',
-        '#023e8a',
-        '#0077b6',
-        '#0096c7',
-        '#00b4d8',
-        '#48cae4',
-      ],
-    });
-  </script>
+                    <h3 class="mt-5 mb-4">Live Preview</h3>
+                    <div class="preview-box" id="fogPreview">
+                        Fog Preview
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <button type="submit" id="generateButton" class="btn btn-primary btn-lg">Generate Fluid Pack</button>
+                <div class="status mt-3" id="statusMessage"></div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/fog_generator.js"></script>
+    <script src="js/bucket_generator.js"></script>
+    <script src="js/generator.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script>
+        // Initialize Coloris
+        Coloris({
+            el: '[data-coloris]',
+            themeMode: 'dark',
+            swatches: [
+                '#264653','#2a9d8f','#e9c46a','#f4a261','#e76f51',
+                '#d62828','#023e8a','#0077b6','#0096c7','#00b4d8','#48cae4',
+            ],
+        });
+
+        // Live Preview Logic
+        const fogColorInput = document.getElementById('fogColor');
+        const fogPreview = document.getElementById('fogPreview');
+        
+        function updateFogPreview() {
+            fogPreview.style.backgroundColor = fogColorInput.value;
+            fogPreview.style.borderColor = fogColorInput.value;
+            fogPreview.innerText = ''; // Clear text on color change
+        }
+
+        fogColorInput.addEventListener('input', updateFogPreview);
+        document.addEventListener('coloris:pick', updateFogPreview);
+
+        // Texture Preview Logic
+        function setupTexturePreview(inputId) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(inputId + '_preview');
+            input.addEventListener('change', () => {
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        preview.style.backgroundImage = `url('${e.target.result}')`;
+                    };
+                    reader.readAsDataURL(input.files[0]);
+                } else {
+                    preview.style.backgroundImage = 'none';
+                }
+            });
+        }
+        setupTexturePreview('texture');
+        setupTexturePreview('flowingTexture');
+        setupTexturePreview('bucketTexture');
+        setupTexturePreview('packIcon');
+        
+        // Initial call
+        updateFogPreview();
+    </script>
 </body>
 </html>
