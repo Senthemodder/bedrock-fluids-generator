@@ -618,7 +618,6 @@ function initialize() {
                 }
             } catch (e) {
                 console.warn(`Error processing entity with ID ${entityId}. It may have been removed unexpectedly. Error: ${e}`);
-                entitiesToRemove.add(entityId); // Mark for removal to prevent further errors
             }
         }
 
