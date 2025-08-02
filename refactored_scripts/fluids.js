@@ -326,11 +326,12 @@ function placeFluidWithBucket(itemStack, player, block, face) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
     if (!FluidRegistry[fluidTypeId]) return;
 
-    targetBlock.setType(fluidTypeId);
-    
-    const sourcePermutation = targetBlock.permutation
+    // Atomically create the desired permutation for the new fluid block.
+    const sourcePermutation = BlockPermutation.resolve(fluidTypeId)
         .withState("lumstudio:depth", MAX_SPREAD_DISTANCE)
         .withState("lumstudio:direction", "none");
+
+    // Set the permutation, which also changes the block type.
     targetBlock.setPermutation(sourcePermutation);
     
     activeFluidBlocks.add(getBlockLocationString(targetBlock)); // OPTIMIZATION: Track new fluid block
