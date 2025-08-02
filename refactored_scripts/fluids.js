@@ -151,6 +151,28 @@ function areBlocksEqual(block1, block2) {
 }
 
 /**
+ * Checks if a block can be replaced by a fluid.
+ * @param {Block} block The block to check.
+ * @returns {boolean} True if the block is replaceable.
+ */
+function isBlockReplaceable(block) {
+    if (!block) return false;
+    if (block.isAir || block.isLiquid) return true;
+    
+    // A list of common replaceable blocks.
+    const replaceableIds = [
+        'minecraft:snow_layer',
+        'minecraft:tallgrass',
+        'minecraft:vine',
+        'minecraft:glow_lichen',
+        'minecraft:fern',
+        'minecraft:large_fern',
+        'minecraft:deadbush'
+    ];
+    return replaceableIds.includes(block.typeId);
+}
+
+/**
  * Calculates the correct block states for a horizontally flowing fluid block.
  * @param {BlockPermutation} permutation The block's current permutation.
  * @param {Array<object|undefined>} neighborStates An array of block states for the 4 horizontal neighbors.
@@ -229,17 +251,22 @@ function fluidUpdate(block) {
     const isSourceBlock = depth === MAX_SPREAD_DISTANCE;
 
     const blockBelow = block.below();
-    if (blockBelow?.isAir) {
+    if (isBlockReplaceable(blockBelow)) {
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
-        BlockUpdate.trigger(blockBelow);
+        
+        const updatedBlock = blockBelow.dimension.getBlock(blockBelow.location);
+        BlockUpdate.trigger(updatedBlock);
+
         activeFluidBlocks.add(getBlockLocationString(blockBelow)); // OPTIMIZATION: Track new fluid block
         queue.add(blockBelow);
 
         if (!isSourceBlock) {
-            activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack old fluid block
+            const oldBlockLocation = block.location;
             block.setType('air');
-            BlockUpdate.trigger(block);
+            const deletedBlock = world.getDimension(block.dimension.id).getBlock(oldBlockLocation);
+            BlockUpdate.trigger(deletedBlock);
+            activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack old fluid block
         }
         return;
     }
@@ -277,8 +304,11 @@ function fluidUpdate(block) {
     }
 
     if (!canBeSustained) {
-        activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack decayed fluid block
+        const oldBlockLocation = block.location;
         block.setType('air');
+        const deletedBlock = world.getDimension(block.dimension.id).getBlock(oldBlockLocation);
+        BlockUpdate.trigger(deletedBlock);
+        activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack decayed fluid block
         return;
     }
     
@@ -286,10 +316,13 @@ function fluidUpdate(block) {
         const newDepth = depth - 1;
         for (const dir of HORIZONTAL_DIRECTIONS) {
             const neighbor = block.offset(dir);
-            if (neighbor?.isAir) {
+            if (isBlockReplaceable(neighbor)) {
                 const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
                 neighbor.setPermutation(spreadingPermutation);
-                BlockUpdate.trigger(neighbor);
+
+                const updatedNeighbor = neighbor.dimension.getBlock(neighbor.location);
+                BlockUpdate.trigger(updatedNeighbor);
+
                 activeFluidBlocks.add(getBlockLocationString(neighbor)); // OPTIMIZATION: Track new fluid block
                 queue.add(neighbor);
             }
@@ -306,7 +339,8 @@ function fluidUpdate(block) {
 
     if (!arePermutationsEqual(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
-        BlockUpdate.trigger(block);
+        const updatedBlock = block.dimension.getBlock(block.location);
+        BlockUpdate.trigger(updatedBlock);
     }
 }
 
@@ -326,7 +360,7 @@ function placeFluidWithBucket(itemStack, player, block, face) {
 
   const targetBlock = block.offset(offset);
 
-  if (targetBlock && targetBlock.isAir) {
+  if (targetBlock && isBlockReplaceable(targetBlock)) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
     if (!FluidRegistry[fluidTypeId]) return;
 
@@ -337,7 +371,9 @@ function placeFluidWithBucket(itemStack, player, block, face) {
 
     // Set the permutation, which also changes the block type.
     targetBlock.setPermutation(sourcePermutation);
-    BlockUpdate.trigger(targetBlock);
+    
+    const updatedBlock = targetBlock.dimension.getBlock(targetBlock.location);
+    BlockUpdate.trigger(updatedBlock);
     
     activeFluidBlocks.add(getBlockLocationString(targetBlock)); // OPTIMIZATION: Track new fluid block
     
