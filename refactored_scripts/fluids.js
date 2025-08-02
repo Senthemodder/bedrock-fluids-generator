@@ -452,7 +452,7 @@ function initialize() {
                 if (oldEntity) oldEntity.kill();
                 pickupEntities.delete(player.id);
             }
-            else if (showPickupEntity && existingPickup && !targetedBlock.equals(existingPickup.block)) {
+            else if (showPickupEntity && existingPickup && (targetedBlock.location.x !== existingPickup.block.location.x || targetedBlock.location.y !== existingPickup.block.location.y || targetedBlock.location.z !== existingPickup.block.location.z || targetedBlock.dimension.id !== existingPickup.block.dimension.id)) {
                 const oldEntity = world.getEntity(existingPickup.id);
                 if (oldEntity) oldEntity.kill();
                 
