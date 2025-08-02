@@ -2,11 +2,11 @@ import { system, world } from "@minecraft/server";
 import { FluidRegistry } from "./registry.js";
 
 /**
- * A class that manages a queue of fluid blocks to be updated, respecting a
- * configurable tick delay for performance and custom flow speeds.
+ * A robust, timed queue system for processing fluid block updates.
  */
 export class FluidQueue {
-    #queue = new Set();
+    #queue = [];
+    #queuedItems = new Set();
     #updateCallback;
     #fluidId;
     #tickDelay;
@@ -31,31 +31,57 @@ export class FluidQueue {
     }
 
     /**
-     * Adds a block to the update queue if it's not already present.
+     * Adds a block to the update queue. This is the function we are diagnosing.
      * @param {import("@minecraft/server").Block} block The block to add.
      */
     add(block) {
-        if (!block || !block.isValid()) return;
-        this.#queue.add(this.#getBlockLocationString(block));
+        try {
+            if (!block || !block.isValid()) {
+                // console.warn("[FluidQueue] Ignored an invalid block passed to add().");
+                return;
+            }
+
+            const locationString = this.#getBlockLocationString(block);
+            
+            if (this.#queuedItems.has(locationString)) {
+                return;
+            }
+
+            this.#queuedItems.add(locationString);
+            this.#queue.push(locationString);
+
+        } catch (e) {
+            // THIS IS THE DIAGNOSTIC BLOCK
+            console.error("--- [FluidQueue] CRITICAL ERROR IN ADD METHOD ---");
+            console.error(`Error: ${e.message}`);
+            console.error(`Stack: ${e.stack}`);
+            // The following line will attempt to serialize the object that was passed in.
+            // This will help us see if it's a real block or something else.
+            try {
+                console.error(`Problematic "block" object: ${JSON.stringify(block, null, 2)}`);
+            } catch (stringifyError) {
+                console.error(`Could not stringify the "block" object. It might be a circular structure or an unstable native object.`);
+            }
+            console.error("-------------------------------------------------");
+        }
     }
 
     /**
      * Starts the processing loop for this queue.
-     * @param {number} updatesPerInterval The number of blocks to process each time the interval runs.
+     * @param {number} updatesPerInterval The maximum number of blocks to process each time the interval runs.
      */
     run(updatesPerInterval) {
         system.runInterval(() => {
-            if (this.#queue.size === 0) return;
+            if (this.#queue.length === 0) return;
 
-            const itemsToProcess = Array.from(this.#queue).slice(0, updatesPerInterval);
-            
-            // Create a new set for the remaining items
-            const remainingItems = new Set(Array.from(this.#queue));
-            itemsToProcess.forEach(item => remainingItems.delete(item));
-            this.#queue = remainingItems;
+            const itemsToProcessCount = Math.min(this.#queue.length, updatesPerInterval);
 
+            for (let i = 0; i < itemsToProcessCount; i++) {
+                const locationString = this.#queue.shift();
+                if (!locationString) continue;
 
-            for (const locationString of itemsToProcess) {
+                this.#queuedItems.delete(locationString);
+
                 try {
                     const parts = locationString.split(',');
                     const location = { x: +parts[0], y: +parts[1], z: +parts[2] };
@@ -68,7 +94,7 @@ export class FluidQueue {
                         this.#updateCallback(block);
                     }
                 } catch (e) {
-                    // It's safe to ignore and continue.
+                    // This is a safe failure, can be ignored.
                 }
             }
         }, this.#tickDelay);
