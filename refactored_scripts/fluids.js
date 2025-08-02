@@ -340,7 +340,11 @@ function placeFluidWithBucket(itemStack, player, block, face) {
         queue.add(targetBlock);
     }
 
-    player.getComponent("equippable").setEquipment("Mainhand", new ItemStack("bucket"));
+    // Only replace the bucket if the player is not in creative mode.
+    if (!player.matches({ gameMode: 'creative' })) {
+        const equippable = player.getComponent("equippable");
+        equippable.setEquipment("Mainhand", new ItemStack("bucket"));
+    }
   }
 }
 
