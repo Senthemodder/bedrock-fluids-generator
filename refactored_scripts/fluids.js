@@ -568,7 +568,7 @@ function initialize() {
                 const bodyBlock = entity.dimension.getBlock(entity.location);
                 const fluidData = FluidRegistry[bodyBlock?.typeId];
                 if (!fluidData) {
-                    // Fluid block may have decayed, treat as leaving.
+                    // Fluid block may have decayed or is not a registered fluid, treat as leaving.
                     if (entity.typeId === "minecraft:player") {
                         entity.runCommand("fog @s remove fluid_fog");
                     }
@@ -576,7 +576,7 @@ function initialize() {
                     continue;
                 }
 
-                // 4. APPLY EFFECTS: At this point, the entity is valid and in a fluid.
+                // 4. APPLY EFFECTS: At this point, the entity is valid and in a registered fluid.
                 
                 // --- Player-Specific Effects ---
                 if (entity.typeId === "minecraft:player") {

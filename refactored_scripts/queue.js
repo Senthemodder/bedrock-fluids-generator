@@ -1,4 +1,4 @@
-import { system } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 import { FluidRegistry } from "./registry.js";
 
 /**
@@ -12,25 +12,31 @@ export class FluidQueue {
     #tickDelay;
 
     /**
-     * @param {(block: Block) => void} updateCallback The function to call for each block update.
+     * @param {(block: import("@minecraft/server").Block) => void} updateCallback The function to call for each block update.
      * @param {string} fluidId The identifier of the fluid this queue manages.
      */
     constructor(updateCallback, fluidId) {
         this.#updateCallback = updateCallback;
         this.#fluidId = fluidId;
-        
-        // Get the specific tick delay for this fluid from the registry, default to 5.
         this.#tickDelay = FluidRegistry[this.#fluidId]?.tick_delay || 5;
     }
 
     /**
+     * Creates a standardized location string for use as a unique key.
+     * @param {import("@minecraft/server").Block} block The block.
+     * @returns {string} A string formatted as "x,y,z,dimensionId".
+     */
+    #getBlockLocationString(block) {
+        return `${block.location.x},${block.location.y},${block.location.z},${block.dimension.id}`;
+    }
+
+    /**
      * Adds a block to the update queue if it's not already present.
-     * @param {Block} block The block to add.
+     * @param {import("@minecraft/server").Block} block The block to add.
      */
     add(block) {
         if (!block || !block.isValid()) return;
-        // Use a location string as a unique key to prevent duplicate processing.
-        this.#queue.add(block.location.toString());
+        this.#queue.add(this.#getBlockLocationString(block));
     }
 
     /**
@@ -42,33 +48,29 @@ export class FluidQueue {
             if (this.#queue.size === 0) return;
 
             const itemsToProcess = Array.from(this.#queue).slice(0, updatesPerInterval);
-            this.#queue = new Set(Array.from(this.#queue).slice(updatesPerInterval));
+            
+            // Create a new set for the remaining items
+            const remainingItems = new Set(Array.from(this.#queue));
+            itemsToProcess.forEach(item => remainingItems.delete(item));
+            this.#queue = remainingItems;
+
 
             for (const locationString of itemsToProcess) {
                 try {
-                    // Re-fetch the block from its location to ensure it's still valid.
-                    const location = this.#stringToLocation(locationString);
-                    const block = world.getDimension("overworld").getBlock(location); // Note: Assumes overworld, might need enhancement for multi-dim support
+                    const parts = locationString.split(',');
+                    const location = { x: +parts[0], y: +parts[1], z: +parts[2] };
+                    const dimensionId = parts[3];
+                    
+                    const dimension = world.getDimension(dimensionId);
+                    const block = dimension.getBlock(location);
 
                     if (block && block.isValid() && block.typeId === this.#fluidId) {
                         this.#updateCallback(block);
                     }
                 } catch (e) {
-                    // This can happen if the block becomes invalid during processing.
                     // It's safe to ignore and continue.
                 }
             }
         }, this.#tickDelay);
-    }
-
-    /**
-     * Converts a location string back into a Vector3 object.
-     * @param {string} locString The string from location.toString().
-     * @returns {{x: number, y: number, z: number}}
-     * @private
-     */
-    #stringToLocation(locString) {
-        const [x, y, z] = locString.split(',').map(Number);
-        return { x, y, z };
     }
 }
