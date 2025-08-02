@@ -311,16 +311,10 @@ function placeFluidWithBucket(itemStack, player, block, face) {
   const isFluidBucket = itemStack.typeId.endsWith('_bucket');
   if (!isFluidBucket) return;
 
-  let targetBlock;
-  switch (face) {
-    case Direction.Up: targetBlock = block.above(1); break;
-    case Direction.Down: targetBlock = block.below(1); break;
-    case Direction.North: targetBlock = block.north(1); break;
-    case Direction.South: targetBlock = block.south(1); break;
-    case Direction.East: targetBlock = block.east(1); break;
-    case Direction.West: targetBlock = block.west(1); break;
-    default: return;
-  }
+  const offset = directionToOffset[face];
+  if (!offset) return; // Exit if the direction is somehow invalid
+
+  const targetBlock = block.offset(offset);
 
   if (targetBlock && targetBlock.isAir) {
     const fluidTypeId = itemStack.typeId.replace('_bucket', '');
@@ -409,7 +403,6 @@ function initialize() {
     
     // --- 4. Main Tick Loop ---
     const entitiesInFluid = new Set();
-    const flightDisabledPlayers = new Map();
     const pickupEntities = new Map();
 
     // This handles restoring flight to players who log off while in a fluid.
