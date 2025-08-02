@@ -8,7 +8,7 @@
 //                          IMPORTS
 //================================================================//
 
-import { world, system, Player, BlockPermutation, ItemStack, Direction, Block } from "@minecraft/server";
+import { world, system, Player, BlockPermutation, ItemStack, Direction, Block, GameMode } from "@minecraft/server";
 import { BlockUpdate } from "./BlockUpdate.js";
 import { FluidQueue } from "./queue.js";
 import { FluidRegistry } from "./registry.js";
@@ -226,12 +226,14 @@ function fluidUpdate(block) {
     if (blockBelow?.isAir) {
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
+        BlockUpdate.trigger(blockBelow);
         activeFluidBlocks.add(getBlockLocationString(blockBelow)); // OPTIMIZATION: Track new fluid block
         queue.add(blockBelow);
 
         if (!isSourceBlock) {
             activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack old fluid block
             block.setType('air');
+            BlockUpdate.trigger(block);
         }
         return;
     }
@@ -281,6 +283,7 @@ function fluidUpdate(block) {
             if (neighbor?.isAir) {
                 const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
                 neighbor.setPermutation(spreadingPermutation);
+                BlockUpdate.trigger(neighbor);
                 activeFluidBlocks.add(getBlockLocationString(neighbor)); // OPTIMIZATION: Track new fluid block
                 queue.add(neighbor);
             }
@@ -297,6 +300,7 @@ function fluidUpdate(block) {
 
     if (!arePermutationsEqual(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
+        BlockUpdate.trigger(block);
     }
 }
 
@@ -327,6 +331,7 @@ function placeFluidWithBucket(itemStack, player, block, face) {
 
     // Set the permutation, which also changes the block type.
     targetBlock.setPermutation(sourcePermutation);
+    BlockUpdate.trigger(targetBlock);
     
     activeFluidBlocks.add(getBlockLocationString(targetBlock)); // OPTIMIZATION: Track new fluid block
     
@@ -336,7 +341,7 @@ function placeFluidWithBucket(itemStack, player, block, face) {
     }
 
     // Only replace the bucket if the player is not in creative mode.
-    if (!player.matches({ gameMode: 'creative' })) {
+    if (!player.matches({ gameMode: GameMode.Creative })) {
         const equippable = player.getComponent("equippable");
         equippable.setEquipment("Mainhand", new ItemStack("bucket"));
     }
@@ -393,7 +398,6 @@ function initialize() {
                         const oldBlockLocation = block.location;
                         activeFluidBlocks.delete(getBlockLocationString(block));
                         block.setType('air');
-
                         BlockUpdate.triggerForNeighborsAt(block.dimension, oldBlockLocation, undefined);
                     });
                 }
@@ -410,9 +414,14 @@ function initialize() {
         const { player } = event;
         // Use a short delay to ensure the player is fully loaded.
         system.runTimeout(() => {
-            if (player.hasTag("flight_disabled_by_fluid")) {
-                player.runCommand("ability @s mayfly true");
-                player.removeTag("flight_disabled_by_fluid");
+            try {
+                // Add a validity check in case the player leaves before the timeout fires.
+                if (player && player.isValid() && player.hasTag("flight_disabled_by_fluid")) {
+                    player.runCommand("ability @s mayfly true");
+                    player.removeTag("flight_disabled_by_fluid");
+                }
+            } catch (e) {
+                console.warn(`[Fluid Engine] A non-critical error occurred during the playerJoin event, likely due to engine startup timing. Error: ${e}`);
             }
         }, 5);
     });
@@ -545,11 +554,11 @@ function initialize() {
             // 4. APPLY EFFECTS: At this point, the entity is valid and in a fluid.
             
             // --- Player-Specific Effects ---
-            if (entity.typeId === "minecraft:player") {
-                if (entity.matches({ gameMode: 'creative' }) && !entity.hasTag("flight_disabled_by_fluid")) {
-                    entity.runCommand("ability @s mayfly false");
-                    entity.addTag("flight_disabled_by_fluid");
-                }
+                if (entity.typeId === "minecraft:player") {
+                    if (entity.matches({ gameMode: GameMode.Creative }) && !entity.hasTag("flight_disabled_by_fluid")) {
+                        entity.runCommand("ability @s mayfly false");
+                        entity.addTag("flight_disabled_by_fluid");
+                    }
                 const headBlock = entity.getHeadLocation();
                 const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
                 const fluidDataInHead = FluidRegistry[fluidInHead];
