@@ -260,6 +260,7 @@ function fluidUpdate(block) {
         if (!isSourceBlock) {
             block.setType('air');
             activeFluidBlocks.delete(getBlockLocationString(block));
+            BlockUpdate.trigger(block); // <-- ADDED THIS LINE
         }
         return;
     }
@@ -388,8 +389,20 @@ function initialize() {
     BlockUpdate.on((update) => {
         if (!isInitialized || !update) return; // Do not run until the system is ready
         const { block } = update;
-        if (block && block.isValid() && Queues[block.typeId]) {
-            Queues[block.typeId].add(block);
+        if (block && Queues[block.typeId]) {
+            try {
+                // The `add` method in FluidQueue now has its own robust checks,
+                // but we keep this try-catch as a secondary safeguard against
+                // potential issues with the block object itself before it even
+                // gets to the queue.
+                if (block.isValid()) {
+                    Queues[block.typeId].add(block);
+                }
+            } catch (e) {
+                // This catch is for truly unexpected errors where the block object
+                // might be corrupted or in an unstable state from the game engine.
+                console.warn(`[Fluid Engine] A block became unstable before it could be added to the queue. Error: ${e.message}`);
+            }
         }
     });
 
