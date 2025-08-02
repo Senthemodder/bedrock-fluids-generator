@@ -495,6 +495,9 @@ function initialize() {
                 
                 // Check if the entity's feet are inside a fluid block of a known type.
                 if (bodyBlock && FluidRegistry[bodyBlock.typeId]) {
+                    // BINGO: This is the fix. Ignore the dummy entity to prevent race conditions.
+                    if (entity.typeId === 'lumstudio:fluid_pickup_entity') continue;
+
                     // Add the entity's ID to the set of entities currently in fluid.
                     entitiesInFluid.add(entity.id);
                     // Also add it to the set for this tick, to know it's still in a fluid.
