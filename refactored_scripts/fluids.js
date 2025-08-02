@@ -380,7 +380,7 @@ function initialize() {
 
         // Case 2: Player is holding an empty bucket -> Pick up fluid
         if (itemStack.typeId === 'minecraft:bucket') {
-            if (block.hasTag("fluid")) {
+            if (block && block.hasTag("fluid")) {
                 const depth = block.permutation?.getState("lumstudio:depth");
                 if (depth === MAX_SPREAD_DISTANCE) {
                     event.cancel = true;
