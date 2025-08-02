@@ -131,6 +131,20 @@ function arePermutationsEqual(perm1, perm2) {
 }
 
 /**
+ * Checks if two Block objects represent the exact same block in the world.
+ * @param {Block} block1 The first block.
+ * @param {Block} block2 The second block.
+ * @returns {boolean} True if the blocks are at the same location in the same dimension.
+ */
+function areBlocksEqual(block1, block2) {
+    if (!block1 || !block2) return false;
+    return block1.location.x === block2.location.x &&
+           block1.location.y === block2.location.y &&
+           block1.location.z === block2.location.z &&
+           block1.dimension.id === block2.dimension.id;
+}
+
+/**
  * Calculates the correct block states for a horizontally flowing fluid block.
  * @param {BlockPermutation} permutation The block's current permutation.
  * @param {Array<object|undefined>} neighborStates An array of block states for the 4 horizontal neighbors.
@@ -441,23 +455,22 @@ function initialize() {
                 }
             }
 
-            // If we should show the entity but one doesn't exist, spawn it.
-            if (showPickupEntity && !existingPickup) {
+            // If the player should see a pickup entity but the existing one is wrong or missing...
+            if (showPickupEntity && !areBlocksEqual(targetedBlock, existingPickup?.block)) {
+                // Remove the old entity if it exists.
+                if (existingPickup) {
+                    const oldEntity = world.getEntity(existingPickup.id);
+                    if (oldEntity) oldEntity.kill();
+                }
+                // Spawn the new one.
                 const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', targetedBlock.center());
                 pickupEntities.set(player.id, { id: entity.id, block: targetedBlock });
             } 
-            // If we shouldn't show it but one exists, or if the target block changed, kill it.
+            // If the player should NOT see an entity but one exists, remove it.
             else if (!showPickupEntity && existingPickup) {
                 const oldEntity = world.getEntity(existingPickup.id);
                 if (oldEntity) oldEntity.kill();
                 pickupEntities.delete(player.id);
-            }
-            else if (showPickupEntity && existingPickup && (targetedBlock.location.x !== existingPickup.block.location.x || targetedBlock.location.y !== existingPickup.block.location.y || targetedBlock.location.z !== existingPickup.block.location.z || targetedBlock.dimension.id !== existingPickup.block.dimension.id)) {
-                const oldEntity = world.getEntity(existingPickup.id);
-                if (oldEntity) oldEntity.kill();
-                
-                const entity = player.dimension.spawnEntity('lumstudio:fluid_pickup_entity', targetedBlock.center());
-                pickupEntities.set(player.id, { id: entity.id, block: targetedBlock });
             }
         }
 
