@@ -20,6 +20,28 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         burnsEntities: document.getElementById('burnsEntities').checked,
         supportsBoats: document.getElementById('supportsBoats').checked,
     };
+
+    // --- Input Validation and Sanitization ---
+    statusMessage.textContent = 'Validating input...';
+    let sanitizedId = config.id.trim().toLowerCase();
+    const validIdRegex = /^[a-z0-9_]+:[a-z0-9_]+$/;
+
+    if (!sanitizedId.includes(':')) {
+        statusMessage.textContent = 'Error: Fluid ID must include a namespace (e.g., "myaddon:my_fluid").';
+        generateButton.disabled = false;
+        return;
+    }
+
+    if (!validIdRegex.test(sanitizedId)) {
+        statusMessage.textContent = 'Error: Fluid ID contains invalid characters. Use only lowercase letters, numbers, and underscores.';
+        generateButton.disabled = false;
+        return;
+    }
+    
+    // Use the sanitized ID for the rest of the generation
+    config.id = sanitizedId;
+    document.getElementById('fluidID').value = sanitizedId; // Update the form field to show the user the clean ID
+
     // --- Handle Texture File Inputs ---
     const textureFile = document.getElementById('texture').files[0];
     const flowingTextureFile = document.getElementById('flowingTexture').files[0]; // New flowing texture
