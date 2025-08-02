@@ -577,8 +577,7 @@ function initialize() {
         }
     }, 1); // Run every tick for responsive pickup entity
 }
-    }, 1); // Run every tick for responsive pickup entity
-}
+   
 
 // --- Start the System ---
 initialize();
