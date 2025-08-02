@@ -97,6 +97,12 @@ const flowDirectionToNumber = {
 const Queues = {};
 
 /**
+ * @type {boolean}
+ * @description A flag to prevent the BlockUpdate listener from running before the fluid engine is fully initialized.
+ */
+let isInitialized = false;
+
+/**
  * @type {Set<string>}
  * @description A set that tracks the location string of every active fluid block in the world.
  * This is the core of the entity detection optimization. Instead of checking every entity
@@ -360,7 +366,7 @@ function initialize() {
 
     // --- 2. Setup Block Update Listener ---
     BlockUpdate.on((update) => {
-        if (!update) return;
+        if (!isInitialized || !update) return; // Do not run until the system is ready
         const { block } = update;
         if (block && block.isValid() && Queues[block.typeId]) {
             Queues[block.typeId].add(block);
@@ -368,8 +374,6 @@ function initialize() {
     });
 
     // --- 3. Setup Player Interaction Listeners ---
-
-    // --- 3. Setup Player Interaction Listener ---
     world.beforeEvents.playerInteractWithBlock.subscribe(event => {
         const { player, block, itemStack } = event;
         if (!itemStack) return;
@@ -518,78 +522,83 @@ function initialize() {
         // --- D. Process All Entities in Fluid ---
         const entitiesToRemove = new Set();
         for (const entityId of entitiesInFluid) {
-            const entity = world.getEntity(entityId);
+            try {
+                const entity = world.getEntity(entityId);
 
-            // 1. VALIDATE: Ensure entity exists and is valid.
-            if (!entity || !entity.isValid()) {
-                entitiesToRemove.add(entityId);
-                continue;
-            }
+                // 1. VALIDATE: Ensure entity exists and is valid.
+                if (!entity || !entity.isValid()) {
+                    entitiesToRemove.add(entityId);
+                    continue;
+                }
 
-            // 2. CHECK LOCATION: See if the entity has left the fluid area.
-            if (!entitiesFoundThisTick.has(entityId)) {
-                if (entity.typeId === "minecraft:player") {
-                    entity.runCommand("fog @s remove fluid_fog");
-                    if (entity.hasTag("flight_disabled_by_fluid")) {
-                        entity.runCommand("ability @s mayfly true");
-                        entity.removeTag("flight_disabled_by_fluid");
+                // 2. CHECK LOCATION: See if the entity has left the fluid area.
+                if (!entitiesFoundThisTick.has(entityId)) {
+                    if (entity.typeId === "minecraft:player") {
+                        entity.runCommand("fog @s remove fluid_fog");
+                        if (entity.hasTag("flight_disabled_by_fluid")) {
+                            entity.runCommand("ability @s mayfly true");
+                            entity.removeTag("flight_disabled_by_fluid");
+                        }
                     }
+                    entitiesToRemove.add(entityId);
+                    continue;
                 }
-                entitiesToRemove.add(entityId);
-                continue;
-            }
 
-            // 3. CHECK BLOCK: Ensure the block the entity is in is still a fluid.
-            const bodyBlock = entity.dimension.getBlock(entity.location);
-            const fluidData = FluidRegistry[bodyBlock?.typeId];
-            if (!fluidData) {
-                // Fluid block may have decayed, treat as leaving.
-                if (entity.typeId === "minecraft:player") {
-                    entity.runCommand("fog @s remove fluid_fog");
+                // 3. CHECK BLOCK: Ensure the block the entity is in is still a fluid.
+                const bodyBlock = entity.dimension.getBlock(entity.location);
+                const fluidData = FluidRegistry[bodyBlock?.typeId];
+                if (!fluidData) {
+                    // Fluid block may have decayed, treat as leaving.
+                    if (entity.typeId === "minecraft:player") {
+                        entity.runCommand("fog @s remove fluid_fog");
+                    }
+                    entitiesToRemove.add(entityId);
+                    continue;
                 }
-                entitiesToRemove.add(entityId);
-                continue;
-            }
 
-            // 4. APPLY EFFECTS: At this point, the entity is valid and in a fluid.
-            
-            // --- Player-Specific Effects ---
+                // 4. APPLY EFFECTS: At this point, the entity is valid and in a fluid.
+                
+                // --- Player-Specific Effects ---
                 if (entity.typeId === "minecraft:player") {
                     if (entity.matches({ gameMode: GameMode.Creative }) && !entity.hasTag("flight_disabled_by_fluid")) {
                         entity.runCommand("ability @s mayfly false");
                         entity.addTag("flight_disabled_by_fluid");
                     }
-                const headBlock = entity.getHeadLocation();
-                const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
-                const fluidDataInHead = FluidRegistry[fluidInHead];
-                if (fluidDataInHead && fluidDataInHead.fog) {
-                    const fogId = `lumstudio:${fluidDataInHead.fog}_fog`;
-                    entity.runCommand(`fog @s push ${fogId} fluid_fog`);
-                } else {
-                    entity.runCommand("fog @s remove fluid_fog");
-                }
-                if (entity.isJumping) {
-                    entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
-                }
-            }
-            
-            // --- Physics and Buoyancy ---
-            let buoyancyForce = fluidData.buoyancy || 0;
-            const velocity = entity.getVelocity();
-            if (velocity.y < 0) {
-                buoyancyForce += Math.abs(velocity.y) * 0.3;
-            }
-            entity.applyKnockback(0, 0, 0, buoyancyForce);
-
-            // --- General Effects (Damage, Burn, etc.) ---
-            for (const effectKey in fluidData) {
-                if (effectHandlers[effectKey]) {
-                    try {
-                        effectHandlers[effectKey](entity, fluidData);
-                    } catch (e) {
-                        console.error(`Error applying effect '${effectKey}' on entity ${entity.id}: ${e}`);
+                    const headBlock = entity.getHeadLocation();
+                    const fluidInHead = entity.dimension.getBlock(headBlock)?.typeId;
+                    const fluidDataInHead = FluidRegistry[fluidInHead];
+                    if (fluidDataInHead && fluidDataInHead.fog) {
+                        const fogId = `lumstudio:${fluidDataInHead.fog}_fog`;
+                        entity.runCommand(`fog @s push ${fogId} fluid_fog`);
+                    } else {
+                        entity.runCommand("fog @s remove fluid_fog");
+                    }
+                    if (entity.isJumping) {
+                        entity.addEffect("slow_falling", 5, { showParticles: false, amplifier: 1 });
                     }
                 }
+                
+                // --- Physics and Buoyancy ---
+                let buoyancyForce = fluidData.buoyancy || 0;
+                const velocity = entity.getVelocity();
+                if (velocity.y < 0) {
+                    buoyancyForce += Math.abs(velocity.y) * 0.3;
+                }
+                entity.applyKnockback(0, 0, 0, buoyancyForce);
+
+                // --- General Effects (Damage, Burn, etc.) ---
+                for (const effectKey in fluidData) {
+                    if (effectHandlers[effectKey]) {
+                        try {
+                            effectHandlers[effectKey](entity, fluidData);
+                        } catch (e) {
+                            console.error(`Error applying effect '${effectKey}' on entity ${entity.id}: ${e}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`Error processing entity with ID ${entityId}. It may have been removed unexpectedly. Error: ${e}`);
+                entitiesToRemove.add(entityId); // Mark for removal to prevent further errors
             }
         }
 
@@ -599,6 +608,9 @@ function initialize() {
             entitiesInFluid.delete(entityId);
         }
     }, 1); // Run every tick for responsive pickup entity
+
+    // --- 5. Finalize Initialization ---
+    isInitialized = true;
 }
    
 
