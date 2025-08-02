@@ -1,5 +1,6 @@
 import { generateBucketItemJson } from './bucket_generator.js';
 import { createDummyEntity } from './dummy_entity_generator.js';
+import { FluidGeometryGenerator } from './geometry_generator.js';
 
 document.getElementById('fluidForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -100,10 +101,9 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         };
         dummyFiles.behavior["minecraft:entity"].description.runtime_identifier = "minecraft:shulker";
 
-        // --- Fetch Static Assets ---
-        const fluidGeoResponse = await fetch('js/fluid.geo.json');
-        if (!fluidGeoResponse.ok) throw new Error('Could not load fluid.geo.json.');
-        const fluidGeoContent = await fluidGeoResponse.text();
+        // --- Generate Fluid Geometry Dynamically ---
+        const fluidGeoGenerator = new FluidGeometryGenerator();
+        const fluidGeoContent = fluidGeoGenerator.generateAll().build();
 
         // --- Generate Manifests ---
         const rpManifest = getManifestJson(packName, packDesc, "resources");
@@ -170,7 +170,7 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         rp.folder('render_controllers').file('dummy.json', JSON.stringify(dummyFiles.render_controller, null, 2));
         rp.file('blocks.json', JSON.stringify(blocksRpJson, null, 2));
         rp.folder('textures').file('item_texture.json', JSON.stringify(itemTextureJson, null, 2));
-        rp.folder('models/blocks').file('fluid.geo.json', fluidGeoContent);
+        rp.folder('models/blocks').file('fluid.geo.json', JSON.stringify(fluidGeoContent, null, 2));
         
         // --- Write Texture Files to RP ---
         rp.folder('textures/blocks').file(`${safeId}.png`, textureBuffer);

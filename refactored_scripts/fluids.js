@@ -300,6 +300,7 @@ function fluidUpdate(block) {
     if (!canBeSustained) {
         block.setType('air');
         activeFluidBlocks.delete(getBlockLocationString(block));
+        BlockUpdate.trigger(block); // Notify neighbors of the change
         return;
     }
     
@@ -630,7 +631,9 @@ function initialize() {
                     }
                 }
             } catch (e) {
-                console.warn(`Error processing entity with ID ${entityId}. It may have been removed unexpectedly. Error: ${e}`);
+                // This is an expected race condition where an entity becomes invalid mid-tick.
+                // The robust cleanup loop will handle removing the invalid entity ID on the next tick,
+                // so we can safely ignore this error to prevent console spam.
             }
         }
 
