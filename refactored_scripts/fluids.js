@@ -254,19 +254,12 @@ function fluidUpdate(block) {
     if (isBlockReplaceable(blockBelow)) {
         const fallingFluidPermutation = currentPermutation.withState("lumstudio:depth", isSourceBlock ? MAX_SPREAD_DISTANCE : 8);
         blockBelow.setPermutation(fallingFluidPermutation);
-        
-        const updatedBlock = blockBelow.dimension.getBlock(blockBelow.location);
-        BlockUpdate.trigger(updatedBlock);
-
-        activeFluidBlocks.add(getBlockLocationString(blockBelow)); // OPTIMIZATION: Track new fluid block
+        activeFluidBlocks.add(getBlockLocationString(blockBelow));
         queue.add(blockBelow);
 
         if (!isSourceBlock) {
-            const oldBlockLocation = block.location;
             block.setType('air');
-            const deletedBlock = world.getDimension(block.dimension.id).getBlock(oldBlockLocation);
-            BlockUpdate.trigger(deletedBlock);
-            activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack old fluid block
+            activeFluidBlocks.delete(getBlockLocationString(block));
         }
         return;
     }
@@ -304,11 +297,8 @@ function fluidUpdate(block) {
     }
 
     if (!canBeSustained) {
-        const oldBlockLocation = block.location;
         block.setType('air');
-        const deletedBlock = world.getDimension(block.dimension.id).getBlock(oldBlockLocation);
-        BlockUpdate.trigger(deletedBlock);
-        activeFluidBlocks.delete(getBlockLocationString(block)); // OPTIMIZATION: Untrack decayed fluid block
+        activeFluidBlocks.delete(getBlockLocationString(block));
         return;
     }
     
@@ -319,11 +309,7 @@ function fluidUpdate(block) {
             if (isBlockReplaceable(neighbor)) {
                 const spreadingPermutation = currentPermutation.withState("lumstudio:depth", newDepth);
                 neighbor.setPermutation(spreadingPermutation);
-
-                const updatedNeighbor = neighbor.dimension.getBlock(neighbor.location);
-                BlockUpdate.trigger(updatedNeighbor);
-
-                activeFluidBlocks.add(getBlockLocationString(neighbor)); // OPTIMIZATION: Track new fluid block
+                activeFluidBlocks.add(getBlockLocationString(neighbor));
                 queue.add(neighbor);
             }
         }
@@ -339,8 +325,6 @@ function fluidUpdate(block) {
 
     if (!arePermutationsEqual(block.permutation, newPermutation)) {
         block.setPermutation(newPermutation);
-        const updatedBlock = block.dimension.getBlock(block.location);
-        BlockUpdate.trigger(updatedBlock);
     }
 }
 

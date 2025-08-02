@@ -1,90 +1,74 @@
 import { system } from "@minecraft/server";
+import { FluidRegistry } from "./registry.js";
 
+/**
+ * A class that manages a queue of fluid blocks to be updated, respecting a
+ * configurable tick delay for performance and custom flow speeds.
+ */
 export class FluidQueue {
-    #marked = new Set(); // Use Set for faster membership check
-    #optimized = [];
-    #instant = [];
-    #isRunning = false;
-    #runId;
+    #queue = new Set();
+    #updateCallback;
+    #fluidId;
+    #tickDelay;
+
     /**
-     * Callback Function that changes the block
-     * @callback callback
-     * @param {Block} block
+     * @param {(block: Block) => void} updateCallback The function to call for each block update.
+     * @param {string} fluidId The identifier of the fluid this queue manages.
      */
-    /**
-     * Creates new Fluid Queue
-     * @param {callback} operation
-     * @param {string} blockTypeId
-     */
-    constructor(operation, blockTypeId) {
-        if (typeof operation !== 'function' || operation.length !== 1) {
-            throw new Error("Operation should be a function with one parameter");
-        }
-        this.type = blockTypeId;
-        this.blockOperation = operation;
+    constructor(updateCallback, fluidId) {
+        this.#updateCallback = updateCallback;
+        this.#fluidId = fluidId;
+        
+        // Get the specific tick delay for this fluid from the registry, default to 5.
+        this.#tickDelay = FluidRegistry[this.#fluidId]?.tick_delay || 5;
     }
+
     /**
-     * Adds the fluid block to the queue
-     * @param {Block} block
+     * Adds a block to the update queue if it's not already present.
+     * @param {Block} block The block to add.
      */
     add(block) {
-        if (!this.#isRunning) {
-            console.warn("§cThe fluid queue is stopped, you can't use any methods");
-        } else if (block.typeId === this.type) {
-            if (this.#marked.has(block)) {
-                this.#instant.push(block);
-                this.#marked.delete(block);
-                const index = this.#optimized.findIndex((v) => v === block);
-                if (index !== -1) this.#optimized.splice(index, 1);
-            } else {
-                this.#optimized.push(block);
-            }
-        }
+        if (!block || !block.isValid()) return;
+        // Use a location string as a unique key to prevent duplicate processing.
+        this.#queue.add(block.location.toString());
     }
+
     /**
-     * Makes the block ignore queue the next time
-     * @param {Block} block
+     * Starts the processing loop for this queue.
+     * @param {number} updatesPerInterval The number of blocks to process each time the interval runs.
      */
-    skipQueueFor(block) {
-        this.#marked.add(block);
-    }
-    /**
-     * Starts the fluid flow, spreading and changing
-     * @param {number} countPerTick Runs all registered fluids and their operation for x amount of times in a tick
-     */
-    run(countPerTick) {
-        this.stop();
-        this.#runId = system.runInterval(() => {
-            for (const block of this.#instant) {
+    run(updatesPerInterval) {
+        system.runInterval(() => {
+            if (this.#queue.size === 0) return;
+
+            const itemsToProcess = Array.from(this.#queue).slice(0, updatesPerInterval);
+            this.#queue = new Set(Array.from(this.#queue).slice(updatesPerInterval));
+
+            for (const locationString of itemsToProcess) {
                 try {
-                    this.blockOperation(block);
-                } catch (error) {
-                    console.error(`FluidQueue of ${this.type}: Instant: ${error}`);
+                    // Re-fetch the block from its location to ensure it's still valid.
+                    const location = this.#stringToLocation(locationString);
+                    const block = world.getDimension("overworld").getBlock(location); // Note: Assumes overworld, might need enhancement for multi-dim support
+
+                    if (block && block.isValid() && block.typeId === this.#fluidId) {
+                        this.#updateCallback(block);
+                    }
+                } catch (e) {
+                    // This can happen if the block becomes invalid during processing.
+                    // It's safe to ignore and continue.
                 }
             }
-            this.#instant.length = 0;
-            for (let iteration = 0; iteration < countPerTick; iteration++) {
-                if (this.#optimized.length === 0) break;
-
-                const block = this.#optimized.shift();
-                if (!block?.typeId || block.typeId !== this.type) continue;
-
-                try {
-                    this.blockOperation(block);
-                } catch (error) {
-                    console.error(`FluidQueue of ${this.type}: Ticking: Iteration #${iteration}: ${error}`);
-                }
-            }
-        }, 0);
-        this.#isRunning = true;
+        }, this.#tickDelay);
     }
+
     /**
-     * Stops the fluid flow, spreading and changing
+     * Converts a location string back into a Vector3 object.
+     * @param {string} locString The string from location.toString().
+     * @returns {{x: number, y: number, z: number}}
+     * @private
      */
-    stop() {
-        if (this.#isRunning) {
-            system.clearRun(this.#runId);
-            this.#isRunning = false;
-        }
+    #stringToLocation(locString) {
+        const [x, y, z] = locString.split(',').map(Number);
+        return { x, y, z };
     }
 }

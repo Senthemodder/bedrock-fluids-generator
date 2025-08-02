@@ -12,6 +12,7 @@ function getRegistryScript(config) {
             damage: config.damage,
             fog: config.fogColor.substring(1), // Store hex without '#'
             buoyancy: config.buoyancy,
+            tick_delay: config.tickDelay,
             boat: config.supportsBoats,
         }
     };

@@ -111,18 +111,27 @@
       <label for="damage">Damage Per Tick</label>
       <input type="number" id="damage" step="1" value="0" />
 
-      <label for="lightLevel">Light Level (0-15)</label>
-      <input type="range" id="lightLevel" min="0" max="15" value="0" oninput="this.nextElementSibling.value = this.value" />
-      <output>0</output>
+      <label for="lightLevel" class="form-label">Light Level (0-15)</label>
+                        <input type="number" class="form-control" id="lightLevel" value="0" min="0" max="15">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tickDelay" class="form-label">Flow Speed (Tick Delay)</label>
+                        <input type="number" class="form-control" id="tickDelay" value="5" min="1" max="100">
+                        <div class="form-text">Time in ticks between each flow step. Higher is slower. (Water=5, Lava=30).</div>
+                    </div>
+                </div>
 
-      <label for="effect">Status Effect (optional)</label>
-      <select id="effect">
-        <option value="">None</option>
-        <option value="slowness">Slowness</option>
-        <option value="poison">Poison</option>
-        <option value="blindness">Blindness</option>
-        <option value="night_vision">Night Vision</option>
-      </select>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="effect" class="form-label">Status Effect</label>
+                        <select id="effect" class="form-select">
+                            <option value="">None</option>
+                            <option value="poison">Poison</option>
+                            <option value="wither">Wither</option>
+                            <option value="slowness">Slowness</option>
+                            <option value="weakness">Weakness</option>
+                        </select>
+                    </div>
 
       <div class="checkboxes">
         <label><input type="checkbox" id="burnsEntities" /> Burns Entities</label>

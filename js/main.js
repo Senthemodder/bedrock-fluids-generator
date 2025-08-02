@@ -16,6 +16,7 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         buoyancy: parseFloat(document.getElementById('buoyancy').value),
         damage: parseInt(document.getElementById('damage').value),
         lightLevel: parseInt(document.getElementById('lightLevel').value),
+        tickDelay: parseInt(document.getElementById('tickDelay').value),
         effect: document.getElementById('effect').value,
         burnsEntities: document.getElementById('burnsEntities').checked,
         supportsBoats: document.getElementById('supportsBoats').checked,
