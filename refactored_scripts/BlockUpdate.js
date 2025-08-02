@@ -89,18 +89,28 @@ class BlockUpdate {
    * @param {Block} sourceBlock The block that is the source of the update.
    */
   static trigger(sourceBlock) {
-    if (!sourceBlock || !sourceBlock.isValid()) return;
+    // We can't check isValid() here because it can be the source of the error.
+    // We must pass the object to system.run and let it be resolved on the next tick.
+    if (!sourceBlock) return;
 
-    for (const offset of NEIGHBOR_OFFSETS) {
-      try {
-        const targetBlock = sourceBlock.offset(offset);
-        if (targetBlock) {
-          BlockUpdate.#triggerForAllListeners({ block: targetBlock, source: sourceBlock });
+    // Schedule the actual update logic to run on the next tick.
+    // This gives the engine time to stabilize the block object after a change.
+    system.run(() => {
+        try {
+            // Now, on the next tick, the sourceBlock object should be stable.
+            if (!sourceBlock.isValid()) return;
+
+            for (const offset of NEIGHBOR_OFFSETS) {
+                const targetBlock = sourceBlock.offset(offset);
+                if (targetBlock) {
+                    BlockUpdate.#triggerForAllListeners({ block: targetBlock, source: sourceBlock });
+                }
+            }
+        } catch (e) {
+            // This can happen if the sourceBlock becomes invalid during the one-tick delay.
+            // We can safely ignore this.
         }
-      } catch (e) {
-        // This can happen if the offset is out of the world, so we safely ignore it.
-      }
-    }
+    });
   }
 
   /**
@@ -127,17 +137,20 @@ class BlockUpdate {
    * @param {Block} [sourceBlock=undefined] The optional source block of the change.
    */
   static triggerForNeighborsAt(dimension, location, sourceBlock = undefined) {
-      for (const offset of NEIGHBOR_OFFSETS) {
-          try {
-              const targetLocation = { x: location.x + offset.x, y: location.y + offset.y, z: location.z + offset.z };
-              const targetBlock = dimension.getBlock(targetLocation);
-              if (targetBlock) {
-                  BlockUpdate.#triggerForAllListeners({ block: targetBlock, source: sourceBlock });
-              }
-          } catch (e) {
-              // Ignore errors for out-of-world locations
-          }
-      }
+      // Schedule the update to avoid race conditions with block modifications.
+      system.run(() => {
+        for (const offset of NEIGHBOR_OFFSETS) {
+            try {
+                const targetLocation = { x: location.x + offset.x, y: location.y + offset.y, z: location.z + offset.z };
+                const targetBlock = dimension.getBlock(targetLocation);
+                if (targetBlock) {
+                    BlockUpdate.#triggerForAllListeners({ block: targetBlock, source: sourceBlock });
+                }
+            } catch (e) {
+                // Ignore errors for out-of-world locations
+            }
+        }
+      });
   }
 }
 
