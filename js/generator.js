@@ -151,23 +151,29 @@ function getBlockJson(config) {
             const geoLevel = depth === 8 ? 8 : depth;
             const upTexture = (dir === "none" && depth === 7) ? textureName : flowingTexture;
 
+            const boneVisibility = {
+                "up": "q.block_state('lumstudio:invisible_up') == 0",
+                "down": "q.block_state('lumstudio:invisible_down') == 0",
+                "north": "q.block_state('lumstudio:invisible_north') == 0",
+                "east": "q.block_state('lumstudio:invisible_east') == 0",
+                "west": "q.block_state('lumstudio:invisible_west') == 0",
+                "south": "q.block_state('lumstudio:invisible_south') == 0"
+            };
+
+            // The "half" bones only exist on fluid levels 2-7, so only add visibility rules for them then.
+            if (depth > 1 && depth < 8) {
+                boneVisibility["north_half"] = "q.block_state('lumstudio:invisible_north') == 1";
+                boneVisibility["east_half"] = "q.block_state('lumstudio:invisible_east') == 1";
+                boneVisibility["west_half"] = "q.block_state('lumstudio:invisible_west') == 1";
+                boneVisibility["south_half"] = "q.block_state('lumstudio:invisible_south') == 1";
+            }
+
             const permutation = {
                 "condition": `q.block_state('lumstudio:depth') == ${depth} && q.block_state('lumstudio:direction') == '${dir}'`,
                 "components": {
                     "minecraft:geometry": {
                         "identifier": `geometry.fluid.${geoLevel}`,
-                        "bone_visibility": {
-                            "up": "q.block_state('lumstudio:invisible_up') == 0",
-                            "down": "q.block_state('lumstudio:invisible_down') == 0",
-                            "north": "q.block_state('lumstudio:invisible_north') == 0",
-                            "east": "q.block_state('lumstudio:invisible_east') == 0",
-                            "west": "q.block_state('lumstudio:invisible_west') == 0",
-                            "south": "q.block_state('lumstudio:invisible_south') == 0",
-                            "north_half": "q.block_state('lumstudio:invisible_north') == 1",
-                            "east_half": "q.block_state('lumstudio:invisible_east') == 1",
-                            "west_half": "q.block_state('lumstudio:invisible_west') == 1",
-                            "south_half": "q.block_state('lumstudio:invisible_south') == 1"
-                        }
+                        "bone_visibility": boneVisibility
                     },
                     "minecraft:material_instances": {
                         "*": {
