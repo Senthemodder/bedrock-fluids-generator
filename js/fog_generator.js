@@ -2,7 +2,7 @@
  * @fileoverview A modular API for generating Minecraft Bedrock fog setting JSON files.
  */
 
-class FogGenerator {
+export class FogGenerator {
     /**
      * @param {string} identifier The identifier for the fog setting (e.g., 'lumstudio:custom_fog').
      */

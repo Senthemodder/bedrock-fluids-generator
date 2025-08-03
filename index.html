@@ -66,9 +66,9 @@
         </header>
 
         <form id="fluidForm">
-            <div class="row g-5">
-                <!-- Left Column: Fluid Properties -->
-                <div class="col-lg-6">
+            <div class="row justify-content-center">
+                <!-- Main Column -->
+                <div class="col-lg-8">
                     <h3 class="mb-4">Fluid Properties</h3>
                     
                     <div class="mb-3">
@@ -130,35 +130,29 @@
                         <input class="form-check-input" type="checkbox" id="supportsBoats" checked>
                         <label class="form-check-label" for="supportsBoats">Supports Boats</label>
                     </div>
-                </div>
 
-                <!-- Right Column: Textures & Preview -->
-                <div class="col-lg-6">
+                    <hr class="my-4">
+
                     <h3 class="mb-4">Textures & Icon</h3>
                     
                     <div class="mb-3">
-                        <label for="texture" class="form-label">Still Fluid Texture <span class="texture-preview" id="texture_preview"></span></label>
+                        <label for="texture" class="form-label">Still Fluid Texture</label>
                         <input type="file" class="form-control" id="texture" accept="image/png" required />
                     </div>
 
                     <div class="mb-3">
-                        <label for="flowingTexture" class="form-label">Flowing Fluid Texture <span class="texture-preview" id="flowingTexture_preview"></span></label>
+                        <label for="flowingTexture" class="form-label">Flowing Fluid Texture</label>
                         <input type="file" class="form-control" id="flowingTexture" accept="image/png" />
                     </div>
 
                     <div class="mb-3">
-                        <label for="bucketTexture" class="form-label">Bucket Texture <span class="texture-preview" id="bucketTexture_preview"></span></label>
+                        <label for="bucketTexture" class="form-label">Bucket Texture</label>
                         <input type="file" class="form-control" id="bucketTexture" accept="image/png" required />
                     </div>
 
                     <div class="mb-3">
-                        <label for="packIcon" class="form-label">Pack Icon <span class="texture-preview" id="packIcon_preview"></span></label>
+                        <label for="packIcon" class="form-label">Pack Icon</label>
                         <input type="file" class="form-control" id="packIcon" accept="image/png" />
-                    </div>
-
-                    <h3 class="mt-5 mb-4">Live Preview</h3>
-                    <div class="preview-box" id="fogPreview">
-                        Fog Preview
                     </div>
                 </div>
             </div>
@@ -172,9 +166,6 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/fog_generator.js"></script>
-    <script src="js/bucket_generator.js"></script>
-    <script src="js/generator.js"></script>
     <script type="module" src="js/main.js"></script>
     <script>
         // Initialize Coloris
@@ -186,43 +177,6 @@
                 '#d62828','#023e8a','#0077b6','#0096c7','#00b4d8','#48cae4',
             ],
         });
-
-        // Live Preview Logic
-        const fogColorInput = document.getElementById('fogColor');
-        const fogPreview = document.getElementById('fogPreview');
-        
-        function updateFogPreview() {
-            fogPreview.style.backgroundColor = fogColorInput.value;
-            fogPreview.style.borderColor = fogColorInput.value;
-            fogPreview.innerText = ''; // Clear text on color change
-        }
-
-        fogColorInput.addEventListener('input', updateFogPreview);
-        document.addEventListener('coloris:pick', updateFogPreview);
-
-        // Texture Preview Logic
-        function setupTexturePreview(inputId) {
-            const input = document.getElementById(inputId);
-            const preview = document.getElementById(inputId + '_preview');
-            input.addEventListener('change', () => {
-                if (input.files && input.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        preview.style.backgroundImage = `url('${e.target.result}')`;
-                    };
-                    reader.readAsDataURL(input.files[0]);
-                } else {
-                    preview.style.backgroundImage = 'none';
-                }
-            });
-        }
-        setupTexturePreview('texture');
-        setupTexturePreview('flowingTexture');
-        setupTexturePreview('bucketTexture');
-        setupTexturePreview('packIcon');
-        
-        // Initial call
-        updateFogPreview();
     </script>
 </body>
 </html>
