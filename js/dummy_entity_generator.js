@@ -18,7 +18,7 @@
  *   render_controller: object
  * }} An object containing the JSON for the four required files.
  */
-export function createDummyEntity(config) {
+function createDummyEntity(config) {
     if (!config || !config.identifier) {
         throw new Error("Dummy entity configuration must include an 'identifier'.");
     }

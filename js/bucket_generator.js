@@ -20,7 +20,7 @@
  * @param {string} config.name - The human-readable name of the fluid (e.g., "Liquid Bismuth").
  * @returns {object} A complete and valid JSON object for the bucket item's behavior file.
  */
-export function generateBucketItemJson(config) {
+function generateBucketItemJson(config) {
     const fluidId = config.id;
     const bucketId = `${fluidId}_bucket`;
     const fluidName = config.name;

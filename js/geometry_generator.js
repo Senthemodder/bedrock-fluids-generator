@@ -3,7 +3,7 @@
  * This ensures UV maps are correct and provides a single source of truth for the fluid's visual shape.
  */
 
-export class FluidGeometryGenerator {
+class FluidGeometryGenerator {
     constructor() {
         this.geometry = {
             "format_version": "1.12.0",

@@ -1,11 +1,7 @@
-import { getBlockJson, getManifestJson, getRegistryScript } from './generator.js';
-import { FogGenerator } from './fog_generator.js';
-import { createDummyEntity } from './dummy_entity_generator.js';
-import { FluidGeometryGenerator } from './geometry_generator.js'; // Import the dynamic generator
-import { generateBucketItemJson } from './bucket_generator.js';
+// Note: This file is now a regular script, not a module.
+// It relies on the other JS files being loaded first in index.html.
 
-document.getElementById('fluidForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
+document.getElementById('generateButton').addEventListener('click', async function (e) {
     const generateButton = document.getElementById('generateButton');
     const statusMessage = document.getElementById('statusMessage');
     const spinner = generateButton.querySelector('.spinner-border');
@@ -21,7 +17,10 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         }
         // Disable/enable all form fields
         for (const element of formElements) {
-            element.disabled = isLoading;
+            // Keep the button enabled so the user can see the spinner
+            if (element.id !== 'generateButton') {
+                element.disabled = isLoading;
+            }
         }
     };
 
@@ -113,7 +112,6 @@ document.getElementById('fluidForm').addEventListener('submit', async function (
         dummyFiles.behavior["minecraft:entity"].components["minecraft:type_family"] = { "family": ["inanimate", "fluid_pickup"] };
         dummyFiles.behavior["minecraft:entity"].description.runtime_identifier = "minecraft:shulker";
 
-        // --- Use the new dynamic FluidGeometryGenerator ---
         const fluidGeoGenerator = new FluidGeometryGenerator();
         const fluidGeoContent = fluidGeoGenerator.generateAll().build();
 
