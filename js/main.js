@@ -4,7 +4,7 @@ import { createDummyEntity } from './dummy_entity_generator.js';
 import { FluidGeometryGenerator } from './geometry_generator.js';
 import { generateBucketItemJson } from './bucket_generator.js';
 
-document.getElementById('generateButton').addEventListener('click', async function (e) {
+document.getElementById('fluidForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const generateButton = document.getElementById('generateButton');
     const statusMessage = document.getElementById('statusMessage');
