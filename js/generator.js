@@ -25,7 +25,7 @@ function getRegistryScript(config) {
         registry[fluidId].effect = config.effect;
     }
 
-    return `const FluidRegistry = ${JSON.stringify(registry, null, 2)};`;
+    return `export const FluidRegistry = ${JSON.stringify(registry, null, 2)};`;
 }
 
 function getManifestJson(packName, packDesc, type, rpUuid) {
