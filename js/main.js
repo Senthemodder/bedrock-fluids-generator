@@ -4,12 +4,18 @@ import { createDummyEntity } from './dummy_entity_generator.js';
 import { FluidGeometryGenerator } from './geometry_generator.js';
 import { generateBucketItemJson } from './bucket_generator.js';
 
-document.getElementById('fluidForm').addEventListener('submit', async function (e) {
+document.getElementById('generateButton').addEventListener('click', async function (e) {
     e.preventDefault();
     const generateButton = document.getElementById('generateButton');
     const statusMessage = document.getElementById('statusMessage');
+    const spinner = generateButton.querySelector('.spinner-border');
+    const formElements = document.getElementById('fluidForm').elements;
 
     generateButton.disabled = true;
+    spinner.classList.remove('d-none');
+    for (const element of formElements) {
+        element.disabled = true;
+    }
     statusMessage.textContent = 'Reading user input...';
 
     const config = {
@@ -201,5 +207,9 @@ a.download = filename;
         statusMessage.textContent = `Error: ${error.message}`;
     } finally {
         generateButton.disabled = false;
+        spinner.classList.add('d-none');
+        for (const element of formElements) {
+            element.disabled = false;
+        }
     }
 });
